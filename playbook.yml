@@ -1,0 +1,139 @@
+---
+- hosts: all
+  remote_user: root
+  become: yes
+  become_user: root
+  vars:
+    tools_dir: /home/build/tools
+    jdks_dir: /home/build/jdks
+    downloads_dir: /home/build/downloads
+    maven_version: 3.6.0
+
+  tasks:
+  - name: upgrade all packages
+    dnf: name="*" state=latest
+  - name: Have common tools
+    dnf: name={{item}} state=latest
+    with_items:
+       - git
+       - wget
+       - the_silver_searcher
+       - htop
+       - acl
+       - dnf-plugins-core
+       - bash-completion
+       - libselinux-python
+       - jq
+       - gnupg
+       # run sudo haveged --run=0 to fill entropy pool for key generation
+       - haveged
+       # - java-1.8.0-openjdk-devel
+
+  - name: have build user
+    user:
+      name: build
+      shell: /bin/bash
+
+  - name: Have docker repo
+    shell:  'dnf config-manager \
+      --add-repo \
+      https://download.docker.com/linux/fedora/docker-ce.repo'
+  - name: Have dnf cache updated
+    shell: 'dnf makecache'
+  - name: Have docker-ce
+    dnf: name=docker-ce
+  - name: add docker group
+    group: name=docker state=present
+  - name: Have /etc/docker
+    file: path=/etc/docker state=directory
+  - name: Have daemon.json
+    copy:
+      src: docker_daemon.json
+      dest: /etc/docker/daemon.json
+
+  - name: Ensure Docker is started
+    systemd:
+      state: started
+      enabled: yes
+      name: docker
+
+  - name: add wheel group
+    group:
+      name: wheel
+      state: present
+  - name: Allow wheel group to have passwordless sudo
+    lineinfile:
+      dest: /etc/sudoers
+      state: present
+      regexp: '^%wheel'
+      line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+      validate: visudo -cf %s
+
+  - name: add user
+    user: name=build groups=docker,wheel state=present append=yes
+
+  - name: set-up build environment
+    block:
+
+      - name: Have {{ tools_dir }}
+        file: path={{ tools_dir }} state=directory
+      - name: Have {{ downloads_dir }}
+        file: path={{ downloads_dir }} state=directory
+      - name: Have {{ jdks_dir }}
+        file: path={{ jdks_dir }} state=directory
+
+      - name: Have Maven {{ maven_version }}
+        get_url:
+          url: http://mirror.netcologne.de/apache.org/maven/maven-3/{{ maven_version }}/binaries/apache-maven-{{ maven_version }}-bin.tar.gz
+          dest: "{{ downloads_dir }}"
+      - name: Have Maven {{ maven_version }} unpacked
+        unarchive:
+          src: "{{ downloads_dir }}/apache-maven-{{ maven_version }}-bin.tar.gz"
+          dest: "{{ tools_dir }}"
+          remote_src: True
+          creates: "{{ tools_dir }}/apache-maven-{{ maven_version }}"
+
+      - name: Have Java 11
+        get_url:
+          url: https://download.java.net/java/GA/jdk11/13/GPL/openjdk-11.0.1_linux-x64_bin.tar.gz
+          dest: "{{ downloads_dir }}"
+      - name: Have Java 11 unpacked
+        unarchive:
+          src: "{{ downloads_dir }}/openjdk-11.0.1_linux-x64_bin.tar.gz"
+          dest: "{{ jdks_dir }}"
+          remote_src: True
+          creates: "{{ jdks_dir }}/jdk-11.0.1"
+
+      # run this to switch JDK versions: sudo alternatives --config java_home
+      - name: set-up alternatives
+        block:
+          - name: Have /usr/lib/jvm
+            file: path=/usr/lib/jvm state=directory
+          - name: Have Maven as alternative
+            alternatives:
+              name: mvn
+              link: /usr/bin/mvn
+              path: "{{ tools_dir }}/apache-maven-{{ maven_version }}/bin/mvn"
+          - name: Have mvnDebug as alternative
+            alternatives:
+              name: mvnDebug
+              link: /usr/bin/mvnDebug
+              path: "{{ tools_dir }}/apache-maven-{{ maven_version }}/bin/mvnDebug"
+
+          - name: Have Java 11 as alternative
+            alternatives:
+              name: java_home
+              link: /usr/lib/jvm/java_home
+              path: "{{ jdks_dir }}/jdk-11.0.1"
+
+      - name: Have .bashrc
+        copy:
+          src: user_bashrc
+          dest: /home/build/.bashrc
+          mode: 0644
+
+      - name: Have toolchains.xml
+        copy:
+          src: toolchains.xml
+          dest: /home/build/.m2/toolchains.xml
+          mode: 0644
