@@ -1,0 +1,86 @@
+- name: set-up build environment
+  become: yes
+  become_user: build
+  block:
+
+    - name: Have {{ tools_dir }}
+      file: path={{ tools_dir }} state=directory
+    - name: Have {{ downloads_dir }}
+      file: path={{ downloads_dir }} state=directory
+    - name: Have {{ jdks_dir }}
+      file: path={{ jdks_dir }} state=directory
+    - name: Have /home/build/.m2
+      file: path=/home/build/.m2 state=directory
+
+    - name: Have Maven {{ maven_version }}
+      get_url:
+        url: http://mirror.netcologne.de/apache.org/maven/maven-3/{{ maven_version }}/binaries/apache-maven-{{ maven_version }}-bin.tar.gz
+        dest: "{{ downloads_dir }}"
+    - name: Have Maven {{ maven_version }} unpacked
+      unarchive:
+        src: "{{ downloads_dir }}/apache-maven-{{ maven_version }}-bin.tar.gz"
+        dest: "{{ tools_dir }}"
+        remote_src: True
+        creates: "{{ tools_dir }}/apache-maven-{{ maven_version }}"
+
+    - name: Have Java 11
+      get_url:
+        url: https://download.java.net/java/GA/jdk11/13/GPL/openjdk-11.0.1_linux-x64_bin.tar.gz
+        dest: "{{ downloads_dir }}"
+    - name: Have Java 11 unpacked
+      unarchive:
+        src: "{{ downloads_dir }}/openjdk-11.0.1_linux-x64_bin.tar.gz"
+        dest: "{{ jdks_dir }}"
+        remote_src: True
+        creates: "{{ jdks_dir }}/jdk-11.0.1"
+
+    - name: Have Java 12
+      get_url:
+        url: https://download.java.net/java/early_access/jdk12/24/GPL/openjdk-12-ea+24_linux-x64_bin.tar.gz
+        dest: "{{ downloads_dir }}"
+    - name: Have Java 12 unpacked
+      unarchive:
+        src: "{{ downloads_dir }}/openjdk-12-ea+24_linux-x64_bin.tar.gz"
+        dest: "{{ jdks_dir }}"
+        remote_src: True
+        creates: "{{ jdks_dir }}/openjdk-12-ea+24_linux-x64_bin.tar.gz"
+
+    - name: Have toolchains.xml
+      copy:
+        src: toolchains.xml
+        dest: /home/build/.m2/toolchains.xml
+        mode: 0600
+    - name: Have settings.xml
+      copy:
+        src: settings.xml
+        dest: /home/build/.m2/settings.xml
+        mode: 0600
+
+    # run this to switch JDK versions: sudo alternatives --config java_home
+    - name: set-up alternatives
+      become: yes
+      become_user: root
+      block:
+        - name: Have /usr/lib/jvm
+          file: path=/usr/lib/jvm state=directory
+        - name: Have Maven as alternative
+          alternatives:
+            name: mvn
+            link: /usr/bin/mvn
+            path: "{{ tools_dir }}/apache-maven-{{ maven_version }}/bin/mvn"
+        - name: Have mvnDebug as alternative
+          alternatives:
+            name: mvnDebug
+            link: /usr/bin/mvnDebug
+            path: "{{ tools_dir }}/apache-maven-{{ maven_version }}/bin/mvnDebug"
+
+        - name: Have Java 11 as alternative
+          alternatives:
+            name: java_home
+            link: /usr/lib/jvm/java_home
+            path: "{{ jdks_dir }}/jdk-11.0.1"
+        - name: Have Java 12 as alternative
+          alternatives:
+            name: java_home
+            link: /usr/lib/jvm/java_home
+            path: "{{ jdks_dir }}/jdk-12"

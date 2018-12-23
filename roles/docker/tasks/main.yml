@@ -1,0 +1,31 @@
+- name: Have docker repo
+  shell:  'dnf config-manager \
+    --add-repo \
+    https://download.docker.com/linux/fedora/docker-ce.repo'
+- name: Have dnf cache updated
+  shell: 'dnf makecache'
+
+# In case of trouble with the Docker repo
+# wget https://download.docker.com/linux/fedora/28/x86_64/stable/Packages/docker-ce-18.09.0-3.fc28.x86_64.rpm
+# wget https://download.docker.com/linux/fedora/28/x86_64/stable/Packages/containerd.io-1.2.0-3.fc28.x86_64.rpm
+# wget https://download.docker.com/linux/fedora/28/x86_64/stable/Packages/docker-ce-cli-18.09.0-3.fc28.x86_64.rpm
+# sudo dnf install docker-ce-18.09.0-3.fc28.x86_64.rpm containerd.io-1.2.0-3.fc28.x86_64.rpm docker-ce-cli-18.09.0-3.fc28.x86_64.rpm
+- name: Have docker-ce
+  dnf: name=docker-ce
+- name: add docker group
+  group: name=docker state=present
+- name: Have /etc/docker
+  file: path=/etc/docker state=directory
+- name: Have daemon.json
+  copy:
+    src: docker_daemon.json
+    dest: /etc/docker/daemon.json
+
+- name: Ensure Docker is started
+  systemd:
+    state: started
+    enabled: yes
+    name: docker
+
+- name: add user
+  user: name=build groups=docker state=present append=yes
