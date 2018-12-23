@@ -27,6 +27,8 @@
        - gnupg
        # run sudo haveged --run=0 to fill entropy pool for key generation
        - haveged
+       - vim-enhanced
+       - entr
        # - java-1.8.0-openjdk-devel
 
   - name: have build user
@@ -73,6 +75,8 @@
     user: name=build groups=docker,wheel state=present append=yes
 
   - name: set-up build environment
+    become: yes
+    become_user: build
     block:
 
       - name: Have {{ tools_dir }}
@@ -81,6 +85,8 @@
         file: path={{ downloads_dir }} state=directory
       - name: Have {{ jdks_dir }}
         file: path={{ jdks_dir }} state=directory
+      - name: Have /home/build/.m2
+        file: path=/home/build/.m2 state=directory
 
       - name: Have Maven {{ maven_version }}
         get_url:
@@ -104,8 +110,21 @@
           remote_src: True
           creates: "{{ jdks_dir }}/jdk-11.0.1"
 
+      - name: Have Java 12
+        get_url:
+          url: https://download.java.net/java/early_access/jdk12/24/GPL/openjdk-12-ea+24_linux-x64_bin.tar.gz
+          dest: "{{ downloads_dir }}"
+      - name: Have Java 12 unpacked
+        unarchive:
+          src: "{{ downloads_dir }}/openjdk-12-ea+24_linux-x64_bin.tar.gz"
+          dest: "{{ jdks_dir }}"
+          remote_src: True
+          creates: "{{ jdks_dir }}/openjdk-12-ea+24_linux-x64_bin.tar.gz"
+
       # run this to switch JDK versions: sudo alternatives --config java_home
       - name: set-up alternatives
+        become: yes
+        become_user: root
         block:
           - name: Have /usr/lib/jvm
             file: path=/usr/lib/jvm state=directory
@@ -125,6 +144,11 @@
               name: java_home
               link: /usr/lib/jvm/java_home
               path: "{{ jdks_dir }}/jdk-11.0.1"
+          - name: Have Java 12 as alternative
+            alternatives:
+              name: java_home
+              link: /usr/lib/jvm/java_home
+              path: "{{ jdks_dir }}/jdk-12"
 
       - name: Have .bashrc
         copy:
@@ -136,4 +160,10 @@
         copy:
           src: toolchains.xml
           dest: /home/build/.m2/toolchains.xml
+          mode: 0644
+
+      - name: Have settings.xml
+        copy:
+          src: settings.xml
+          dest: /home/build/.m2/settings.xml
           mode: 0644
