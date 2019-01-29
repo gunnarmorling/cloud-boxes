@@ -1,9 +1,14 @@
 ---
 - hosts: all
-  remote_user: root
   become: yes
   become_user: root
   roles:
      - base
      - java
      - docker
+
+- hosts: hetzner
+  remote_user: root
+
+- hosts: aws
+  remote_user: fedora

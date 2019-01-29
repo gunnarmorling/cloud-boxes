@@ -23,8 +23,15 @@ Run this to provision the environment after adjusting the _terraform.tf_ file as
 
 ## Provisioning Docker etc.
 
-* Edit _hosts_ to contain the right ip address and key file name
-* `ansible-playbook -i hosts playbook.yml`
+* Edit _hosts_ to contain the right IP address and key file name
+* `ansible-playbook -i hosts --limit=hetzner playbook.yml`
+
+This also can be run against EC2, provided an instance has been set up
+(see https://alt.fedoraproject.org/cloud/, "Standard HVM AMIs"):
+
+* `ansible-playbook -i hosts --limit=aws playbook.yml`
+
+Terraform set-up for that tbd.
 
 ## Local Set-Up via Vagrant
 

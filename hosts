@@ -1,1 +1,5 @@
+[hetzner]
 <ip address> ansible_ssh_private_key_file=<key file> ansible_python_interpreter=/usr/bin/python3
+
+[aws]
+fedora@<ip address> ansible_ssh_private_key_file=<key file> ansible_python_interpreter=/usr/bin/python3
