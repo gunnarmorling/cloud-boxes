@@ -36,14 +36,14 @@
 
     - name: Have Java 12
       get_url:
-        url: https://download.java.net/java/early_access/jdk12/24/GPL/openjdk-12-ea+24_linux-x64_bin.tar.gz
+        url: https://download.java.net/java/early_access/jdk12/29/GPL/openjdk-12-ea+29_linux-x64_bin.tar.gz
         dest: "{{ downloads_dir }}"
     - name: Have Java 12 unpacked
       unarchive:
-        src: "{{ downloads_dir }}/openjdk-12-ea+24_linux-x64_bin.tar.gz"
+        src: "{{ downloads_dir }}/openjdk-12-ea+29_linux-x64_bin.tar.gz"
         dest: "{{ jdks_dir }}"
         remote_src: True
-        creates: "{{ jdks_dir }}/openjdk-12-ea+24_linux-x64_bin.tar.gz"
+        creates: "{{ jdks_dir }}/openjdk-12-ea+29_linux-x64_bin.tar.gz"
 
     - name: Have toolchains.xml
       copy:
