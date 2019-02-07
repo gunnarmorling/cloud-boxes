@@ -1,5 +1,5 @@
 export JAVA_HOME=/usr/lib/jvm/java_home
-export PATH=$PATH:$JAVA_HOME/bin
+export PATH=$PATH:/home/build/tools/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit
 source /usr/share/git-core/contrib/completion/git-prompt.sh
 export GIT_PS1_SHOWCOLORHINTS=1
 export GIT_PS1_SHOWDIRTYSTATE=true
@@ -7,5 +7,4 @@ export GIT_PS1_SHOWUNTRACKEDFILES=true
 export PS1='[\u@\h \W$(declare -F __git_ps1 &>/dev/null && __git_ps1 " (%s)")]\$ '
 alias ll="ls -al"
 alias vi=vim
-alias oc="/home/build/tools/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/oc"
 cd /home/build
