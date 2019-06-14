@@ -25,25 +25,25 @@
 
     - name: Have Java 11
       get_url:
-        url: https://download.java.net/java/GA/jdk11/13/GPL/openjdk-11.0.1_linux-x64_bin.tar.gz
+        url: https://github.com/AdoptOpenJDK/openjdk11-upstream-binaries/releases/download/jdk-11.0.3%2B7/OpenJDK11U-x64_linux_11.0.3_7.tar.gz
         dest: "{{ downloads_dir }}"
     - name: Have Java 11 unpacked
       unarchive:
-        src: "{{ downloads_dir }}/openjdk-11.0.1_linux-x64_bin.tar.gz"
+        src: "{{ downloads_dir }}/OpenJDK11U-x64_linux_11.0.3_7.tar.gz"
         dest: "{{ jdks_dir }}"
         remote_src: True
-        creates: "{{ jdks_dir }}/jdk-11.0.1"
+        creates: "{{ jdks_dir }}/openjdk-11.0.3+7"
 
     - name: Have Java 12
       get_url:
-        url: https://download.java.net/java/early_access/jdk12/30/GPL/openjdk-12-ea+30_linux-x64_bin.tar.gz
+        url: https://download.java.net/java/GA/jdk12/GPL/openjdk-12_linux-x64_bin.tar.gz
         dest: "{{ downloads_dir }}"
     - name: Have Java 12 unpacked
       unarchive:
-        src: "{{ downloads_dir }}/openjdk-12-ea+30_linux-x64_bin.tar.gz"
+        src: "{{ downloads_dir }}/openjdk-12_linux-x64_bin.tar.gz"
         dest: "{{ jdks_dir }}"
         remote_src: True
-        creates: "{{ jdks_dir }}/openjdk-12-ea+30_linux-x64_bin.tar.gz"
+        creates: "{{ jdks_dir }}/openjdk-12_linux-x64_bin.tar.gz"
 
     - name: Have toolchains.xml
       copy:
@@ -78,7 +78,7 @@
           alternatives:
             name: java_home
             link: /usr/lib/jvm/java_home
-            path: "{{ jdks_dir }}/jdk-11.0.1"
+            path: "{{ jdks_dir }}/openjdk-11.0.3+7"
         - name: Have Java 12 as alternative
           alternatives:
             name: java_home
