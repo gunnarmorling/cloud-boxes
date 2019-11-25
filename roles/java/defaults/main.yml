@@ -1,4 +1,6 @@
 tools_dir: /home/build/tools
 jdks_dir: /home/build/jdks
 downloads_dir: /home/build/downloads
-maven_version: 3.6.0
+maven_version: 3.6.2
+jdk_lts: 11.0.5
+jdk_lts_build: 10

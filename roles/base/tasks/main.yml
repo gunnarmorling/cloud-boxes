@@ -10,7 +10,7 @@
      - acl
      - dnf-plugins-core
      - bash-completion
-     - libselinux-python
+     # - libselinux-python
      - jq
      - gnupg
      # run sudo haveged --run=0 to fill entropy pool for key generation

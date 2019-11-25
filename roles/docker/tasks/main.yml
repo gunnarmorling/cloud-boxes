@@ -5,6 +5,10 @@
 - name: Have dnf cache updated
   shell: 'dnf makecache'
 
+# To make Docker work with Fedora 31;
+# see https://www.linuxuprising.com/2019/11/how-to-install-and-use-docker-on-fedora.html
+# sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+
 # In case of trouble with the Docker repo
 # wget https://download.docker.com/linux/fedora/28/x86_64/stable/Packages/docker-ce-18.09.0-3.fc28.x86_64.rpm
 # wget https://download.docker.com/linux/fedora/28/x86_64/stable/Packages/containerd.io-1.2.0-3.fc28.x86_64.rpm

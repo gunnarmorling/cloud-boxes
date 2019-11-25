@@ -3,11 +3,12 @@ variable "hcloud_token" {}
 # Configure the Hetzner Cloud Provider
 provider "hcloud" {
   token = "${var.hcloud_token}"
+  version = "~> 1.10"
 }
 
 resource "hcloud_server" "control" {
   name        = "control"
-  image       = "fedora-30"
+  image       = "fedora-31"
   datacenter  = "nbg1-dc3"
   server_type = "cx11"
   keep_disk   = true
