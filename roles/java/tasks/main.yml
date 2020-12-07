@@ -34,27 +34,27 @@
         remote_src: True
         creates: "{{ jdks_dir }}/openjdk-{{ jdk_lts }}+{{ jdk_lts_build }}"
 
-    - name: Have Java 13
+    - name: Have Java 15
       get_url:
-        url: https://download.java.net/java/GA/jdk13.0.1/cec27d702aa74d5a8630c65ae61e4305/9/GPL/openjdk-13.0.1_linux-x64_bin.tar.gz
-        dest: "{{ downloads_dir }}/openjdk-13.0.1_linux-x64_bin.tar.gz"
-    - name: Have Java 13 unpacked
+        url: https://download.java.net/java/GA/jdk15.0.1/51f4f36ad4ef43e39d0dfdbaf6549e32/9/GPL/openjdk-15.0.1_linux-aarch64_bin.tar.gz
+        dest: "{{ downloads_dir }}/openjdk-15.0.1_linux-x64_bin.tar.gz"
+    - name: Have Java 15 unpacked
       unarchive:
-        src: "{{ downloads_dir }}/openjdk-13.0.1_linux-x64_bin.tar.gz"
+        src: "{{ downloads_dir }}/openjdk-15.0.1_linux-x64_bin.tar.gz"
         dest: "{{ jdks_dir }}"
         remote_src: True
-        creates: "{{ jdks_dir }}/jdk-13.0.1"
+        creates: "{{ jdks_dir }}/jdk-15.0.1"
 
     - name: Have Java 8 with JavaFX
       get_url:
-        url: https://cdn.azul.com/zulu/bin/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz
-        dest: "{{ downloads_dir }}/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz"
+        url: https://cdn.azul.com/zulu/bin/zulu8.46.0.19-ca-jdk8.0.252-linux_x64.tar.gz
+        dest: "{{ downloads_dir }}/zulu8.46.0.19-ca-jdk8.0.252-linux_x64.tar.gz"
     - name: Have Java 8 with JavaFX unpacked
       unarchive:
-        src: "{{ downloads_dir }}/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64.tar.gz"
+        src: "{{ downloads_dir }}/zulu8.46.0.19-ca-jdk8.0.252-linux_x64.tar.gz"
         dest: "{{ jdks_dir }}"
         remote_src: True
-        creates: "{{ jdks_dir }}/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64"
+        creates: "{{ jdks_dir }}/zulu8.46.0.19-ca-jdk8.0.252-linux_x64"
 
     - name: Have toolchains.xml
       copy:
@@ -90,13 +90,13 @@
             name: java_home
             link: /usr/lib/jvm/java_home
             path: "{{ jdks_dir }}/openjdk-{{ jdk_lts }}+{{ jdk_lts_build }}"
-        - name: Have Java 13 as alternative
+        - name: Have Java 15 as alternative
           alternatives:
             name: java_home
             link: /usr/lib/jvm/java_home
-            path: "{{ jdks_dir }}/jdk-13.0.1"
+            path: "{{ jdks_dir }}/jdk-15.0.1"
         - name: Have Java 8 as alternative
           alternatives:
             name: java_home
             link: /usr/lib/jvm/java_home
-            path: "{{ jdks_dir }}/zulu8.40.0.25-ca-fx-jdk8.0.222-linux_x64"
+            path: "{{ jdks_dir }}/zulu8.46.0.19-ca-jdk8.0.252-linux_x64"

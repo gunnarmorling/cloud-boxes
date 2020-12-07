@@ -17,6 +17,7 @@
      - haveged
      - vim-enhanced
      - entr
+     - zip
      # - java-1.8.0-openjdk-devel
 
 - name: have build user

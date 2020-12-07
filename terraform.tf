@@ -8,7 +8,7 @@ provider "hcloud" {
 
 resource "hcloud_server" "control" {
   name        = "control"
-  image       = "fedora-31"
+  image       = "fedora-32"
   datacenter  = "nbg1-dc3"
   server_type = "cx11"
   keep_disk   = true
