@@ -6,7 +6,6 @@
      - base
      - java
      - docker
-     - openshift
 
 - hosts: hetzner
   remote_user: root
