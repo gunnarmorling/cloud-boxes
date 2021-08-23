@@ -43,7 +43,29 @@
         src: "{{ downloads_dir }}/openjdk-16-ea+34_linux-x64_bin.tar.gz"
         dest: "{{ jdks_dir }}"
         remote_src: True
-        creates: "{{ jdks_dir }}/jdk-16"
+        creates: "{{ jdks_dir }}/jdk-16.0.2"
+
+    - name: Have Java 17
+      get_url:
+        url: https://download.java.net/java/GA/jdk17/0d483333a00540d886896bac774ff48b/35/GPL/openjdk-17_linux-x64_bin.tar.gz
+        dest: "{{ downloads_dir }}/openjdk-17_linux-x64_bin.tar.gz"
+    - name: Have Java 17 unpacked
+      unarchive:
+        src: "{{ downloads_dir }}/openjdk-17_linux-x64_bin.tar.gz"
+        dest: "{{ jdks_dir }}"
+        remote_src: True
+        creates: "{{ jdks_dir }}/jdk-17"
+
+    - name: Have Java 18
+      get_url:
+        url: https://download.java.net/java/early_access/jdk18/11/GPL/openjdk-18-ea+11_linux-x64_bin.tar.gz
+        dest: "{{ downloads_dir }}/openjdk-18-ea+11_linux-x64_bin.tar.gz"
+    - name: Have Java 18 unpacked
+      unarchive:
+        src: "{{ downloads_dir }}/openjdk-18-ea+11_linux-x64_bin.tar.gz"
+        dest: "{{ jdks_dir }}"
+        remote_src: True
+        creates: "{{ jdks_dir }}/jdk-18"
 
     - name: Have toolchains.xml
       copy:
@@ -84,3 +106,13 @@
             name: java_home
             link: /usr/lib/jvm/java_home
             path: "{{ jdks_dir }}/jdk-16.0.2"
+        - name: Have Java 17 as alternative
+          alternatives:
+            name: java_home
+            link: /usr/lib/jvm/java_home
+            path: "{{ jdks_dir }}/jdk-17"
+        - name: Have Java 18 as alternative
+          alternatives:
+            name: java_home
+            link: /usr/lib/jvm/java_home
+            path: "{{ jdks_dir }}/jdk-18"
