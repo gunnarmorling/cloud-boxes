@@ -14,7 +14,7 @@
 
     - name: Have Maven {{ maven_version }}
       get_url:
-        url: http://mirror.netcologne.de/apache.org/maven/maven-3/{{ maven_version }}/binaries/apache-maven-{{ maven_version }}-bin.tar.gz
+        url: https://dlcdn.apache.org/maven/maven-3/{{ maven_version }}/binaries/apache-maven-{{ maven_version }}-bin.tar.gz
         dest: "{{ downloads_dir }}"
     - name: Have Maven {{ maven_version }} unpacked
       unarchive:
@@ -23,46 +23,13 @@
         remote_src: True
         creates: "{{ tools_dir }}/apache-maven-{{ maven_version }}"
 
-    - name: Have Java 11
-      get_url:
-        url: https://github.com/AdoptOpenJDK/openjdk11-upstream-binaries/releases/download/jdk-{{ jdk_lts }}%2B{{ jdk_lts_build }}/OpenJDK11U-jdk_x64_linux_{{ jdk_lts }}_{{ jdk_lts_build }}.tar.gz
-        dest: "{{ downloads_dir }}/OpenJDK11U-jdk_x64_linux_{{ jdk_lts }}_{{ jdk_lts_build }}.tar.gz"
-    - name: Have Java 11 unpacked
-      unarchive:
-        src: "{{ downloads_dir }}/OpenJDK11U-jdk_x64_linux_{{ jdk_lts }}_{{ jdk_lts_build }}.tar.gz"
-        dest: "{{ jdks_dir }}"
-        remote_src: True
-        creates: "{{ jdks_dir }}/openjdk-{{ jdk_lts }}+{{ jdk_lts_build }}"
-
-    - name: Have Java 16
-      get_url:
-        url: https://download.java.net/java/GA/jdk16.0.2/d4a915d82b4c4fbb9bde534da945d746/7/GPL/openjdk-16.0.2_linux-x64_bin.tar.gz
-        dest: "{{ downloads_dir }}/openjdk-16-ea+34_linux-x64_bin.tar.gz"
-    - name: Have Java 16 unpacked
-      unarchive:
-        src: "{{ downloads_dir }}/openjdk-16-ea+34_linux-x64_bin.tar.gz"
-        dest: "{{ jdks_dir }}"
-        remote_src: True
-        creates: "{{ jdks_dir }}/jdk-16.0.2"
-
-    - name: Have Java 17
-      get_url:
-        url: https://download.java.net/java/GA/jdk17/0d483333a00540d886896bac774ff48b/35/GPL/openjdk-17_linux-x64_bin.tar.gz
-        dest: "{{ downloads_dir }}/openjdk-17_linux-x64_bin.tar.gz"
-    - name: Have Java 17 unpacked
-      unarchive:
-        src: "{{ downloads_dir }}/openjdk-17_linux-x64_bin.tar.gz"
-        dest: "{{ jdks_dir }}"
-        remote_src: True
-        creates: "{{ jdks_dir }}/jdk-17"
-
     - name: Have Java 18
       get_url:
-        url: https://download.java.net/java/early_access/jdk18/11/GPL/openjdk-18-ea+11_linux-x64_bin.tar.gz
-        dest: "{{ downloads_dir }}/openjdk-18-ea+11_linux-x64_bin.tar.gz"
+        url: https://download.java.net/java/GA/jdk18.0.1.1/65ae32619e2f40f3a9af3af1851d6e19/2/GPL/openjdk-18.0.1.1_linux-x64_bin.tar.gz
+        dest: "{{ downloads_dir }}/openjdk-18.0.1.1_linux-x64_bin.tar.gz"
     - name: Have Java 18 unpacked
       unarchive:
-        src: "{{ downloads_dir }}/openjdk-18-ea+11_linux-x64_bin.tar.gz"
+        src: "{{ downloads_dir }}/openjdk-18.0.1.1_linux-x64_bin.tar.gz"
         dest: "{{ jdks_dir }}"
         remote_src: True
         creates: "{{ jdks_dir }}/jdk-18"
@@ -79,6 +46,8 @@
         mode: 0600
 
     # run this to switch JDK versions: sudo alternatives --config java_home
+    # run this to install further alternative versions:
+    # sudo update-alternatives --install /usr/lib/jvm/java_home java_home /home/build/jdks/jdk-19 1
     - name: set-up alternatives
       become: yes
       become_user: root
@@ -96,23 +65,8 @@
             link: /usr/bin/mvnDebug
             path: "{{ tools_dir }}/apache-maven-{{ maven_version }}/bin/mvnDebug"
 
-        - name: Have Java 11 as alternative
-          alternatives:
-            name: java_home
-            link: /usr/lib/jvm/java_home
-            path: "{{ jdks_dir }}/openjdk-{{ jdk_lts }}_{{ jdk_lts_build }}"
-        - name: Have Java 16 as alternative
-          alternatives:
-            name: java_home
-            link: /usr/lib/jvm/java_home
-            path: "{{ jdks_dir }}/jdk-16.0.2"
-        - name: Have Java 17 as alternative
-          alternatives:
-            name: java_home
-            link: /usr/lib/jvm/java_home
-            path: "{{ jdks_dir }}/jdk-17"
         - name: Have Java 18 as alternative
           alternatives:
             name: java_home
             link: /usr/lib/jvm/java_home
-            path: "{{ jdks_dir }}/jdk-18"
+            path: "{{ jdks_dir }}/jdk-18.0.1.1"
