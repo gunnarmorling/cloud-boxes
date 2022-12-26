@@ -3,23 +3,12 @@
     <toolchain>
         <type>jdk</type>
         <provides>
-            <version>11</version>
+            <version>19</version>
             <vendor>openjdk</vendor>
             <platform>linux-x64</platform>
         </provides>
         <configuration>
-            <jdkHome>/home/build/jdks/jdk-11.0.1</jdkHome>
-        </configuration>
-    </toolchain>
-    <toolchain>
-        <type>jdk</type>
-        <provides>
-            <version>12</version>
-            <vendor>openjdk</vendor>
-            <platform>linux-x64</platform>
-        </provides>
-        <configuration>
-            <jdkHome>/home/build/jdks/jdk-12</jdkHome>
+            <jdkHome>/home/build/jdks/jdk-19.0.1</jdkHome>
         </configuration>
     </toolchain>
 </toolchains>

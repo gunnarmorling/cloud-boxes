@@ -22,6 +22,7 @@
     - docker-ce
     - docker-ce-cli
     - containerd.io
+    - docker-compose
 - name: add docker group
   group: name=docker state=present
 - name: Have /etc/docker
