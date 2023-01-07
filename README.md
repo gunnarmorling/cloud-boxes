@@ -23,13 +23,27 @@ Run this to provision the environment after adjusting the _terraform.tf_ file as
 
 ## Provisioning Docker etc.
 
-* Edit _hosts_ to contain the right IP address and key file name
-* `ansible-playbook -i hosts --limit=hetzner playbook.yml`
+* Edit _hosts_ to contain the right IP address and key file name:
 
-This also can be run against EC2, provided an instance has been set up
+```
+[hetzner]
+<hostN> ansible_ssh_private_key_file=path/to/key ssh_public_key_file=path/to/key.pub
+```
+
+* Run once to limit SSH access:
+
+```
+ansible-playbook -i hosts --limit=hetzner init-ssh.yml
+```
+
+* Run to provision more packages:
+
+```
+ansible-playbook -i hosts --limit=hetzner playbook.yml`
+```
+
+This also can be run against EC2, provided an instance has been set up and added to the _hosts_ file.
 (see https://alt.fedoraproject.org/cloud/, "Standard HVM AMIs"):
-
-* `ansible-playbook -i hosts --limit=aws playbook.yml`
 
 Terraform set-up for that tbd.
 

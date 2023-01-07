@@ -1,6 +1,10 @@
 - name: upgrade all packages
+  become: true
+  become_user: root
   dnf: name="*" state=latest
 - name: Have common tools
+  become: true
+  become_user: root
   dnf: name={{item}} state=latest
   with_items:
      - git
@@ -10,7 +14,6 @@
      - acl
      - dnf-plugins-core
      - bash-completion
-     # - libselinux-python
      - jq
      - gnupg
      # run sudo haveged --run=0 to fill entropy pool for key generation
@@ -18,32 +21,9 @@
      - vim-enhanced
      - entr
      - zip
-     # - java-1.8.0-openjdk-devel
-
-- name: have build user
-  user:
-    name: build
-    shell: /bin/bash
-
-- name: add wheel group
-  group:
-    name: wheel
-    state: present
-- name: Allow wheel group to have passwordless sudo
-  lineinfile:
-    dest: /etc/sudoers
-    state: present
-    regexp: '^%wheel'
-    line: '%wheel ALL=(ALL) NOPASSWD: ALL'
-    validate: visudo -cf %s
-
-- name: add user
-  user: name=build groups=wheel state=present append=yes
 
 - name: Have .bashrc
-  become: yes
-  become_user: build
   copy:
     src: user_bashrc
-    dest: /home/build/.bashrc
+    dest: /home/{{ user }}/.bashrc
     mode: 0644

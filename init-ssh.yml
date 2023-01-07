@@ -1,0 +1,62 @@
+---
+- name: Disable root login over SSH
+  hosts: all
+  remote_user: root
+  gather_facts: false
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+  - name: have {{ user }} user
+    user:
+      name: "{{ user }}"
+      shell: /bin/bash
+
+  - name: add wheel group
+    group:
+      name: wheel
+      state: present
+  - name: Allow wheel group to have passwordless sudo
+    lineinfile:
+      dest: /etc/sudoers
+      state: present
+      regexp: '^%wheel'
+      line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+      validate: visudo -cf %s
+
+  - name: add user
+    user: name={{ user }} groups=wheel state=present append=yes
+
+  - name: Add authorized key
+    authorized_key:
+      user: "{{ user }}"
+      state: present
+      key: "{{ lookup('file', '{{ ssh_public_key_file }}') }}"
+
+- name: Log in as new user to disable root
+  hosts: all
+  remote_user: "build"
+  become: true
+  become_user: root
+  gather_facts: false
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+  - name: Disable root login over SSH
+    lineinfile: dest=/etc/ssh/sshd_config regexp="^PermitRootLogin" line="PermitRootLogin no" state=present
+    notify:
+      - restart sshd
+
+  - name: Disable password login
+    lineinfile: dest=/etc/ssh/sshd_config regexp="^PasswordAuthentication" line="PasswordAuthentication no" state=present
+    notify:
+      - restart sshd
+
+  handlers:
+  - name: restart sshd
+    service:
+      name: sshd
+      state: restarted
