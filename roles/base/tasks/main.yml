@@ -21,6 +21,7 @@
      - vim-enhanced
      - entr
      - zip
+     - fail2ban
 
 - name: Have .bashrc
   copy:

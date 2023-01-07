@@ -1,8 +1,12 @@
 - name: Have docker repo
+  become: true
+  become_user: root
   shell:  'dnf config-manager \
     --add-repo \
     https://download.docker.com/linux/fedora/docker-ce.repo'
 - name: Have dnf cache updated
+  become: true
+  become_user: root
   shell: 'dnf makecache'
 
 # sudo dnf config-manager     --add-repo     https://download.docker.com/linux/fedora/docker-ce.repo
@@ -17,26 +21,41 @@
 # curl localhost
 
 - name: Have Docker
+  become: true
+  become_user: root
   dnf: name={{item}} state=latest
   with_items:
     - docker-ce
     - docker-ce-cli
     - containerd.io
     - docker-compose
+
 - name: add docker group
   group: name=docker state=present
+  become: true
+  become_user: root
+
 - name: Have /etc/docker
   file: path=/etc/docker state=directory
+  become: true
+  become_user: root
+
 - name: Have daemon.json
+  become: true
+  become_user: root
   copy:
     src: docker_daemon.json
     dest: /etc/docker/daemon.json
 
 - name: Ensure Docker is started
+  become: true
+  become_user: root
   systemd:
     state: started
     enabled: yes
     name: docker
 
 - name: add user
-  user: name=build groups=docker state=present append=yes
+  become: true
+  become_user: root
+  user: name={{ user}} groups=docker state=present append=yes

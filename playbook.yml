@@ -1,14 +1,10 @@
 ---
-- hosts: hetzner
+- hosts: all
   remote_user: build
   roles:
      - base
      - java
      - docker
 
-- hosts: aws
-  remote_user: build
-  roles:
-     - base
-     - java
-     - docker
+  vars_files:
+    - vars.yml
