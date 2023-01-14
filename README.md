@@ -13,13 +13,18 @@ Sets up some nodes in the Hetzner cloud for demo purposes, using the [Hetzner Cl
 
 Run this once after a fresh check out:
 
-* `terraform init`
+```
+terraform init
+```
 
 ## Running
 
 Run this to provision the environment after adjusting the _terraform.tf_ file as needed:
 
-* `terraform apply`
+```
+export TF_VAR_firewall_source_ip=`dig +short txt ch whoami.cloudflare @1.0.0.1
+terraform apply
+```
 
 ## Provisioning Docker etc.
 

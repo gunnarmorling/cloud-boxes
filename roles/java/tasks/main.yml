@@ -23,17 +23,6 @@
         remote_src: True
         creates: "{{ tools_dir }}/apache-maven-{{ maven_version }}"
 
-    - name: Have Java 18
-      get_url:
-        url: https://download.java.net/java/GA/jdk18.0.1.1/65ae32619e2f40f3a9af3af1851d6e19/2/GPL/openjdk-18.0.1.1_linux-x64_bin.tar.gz
-        dest: "{{ downloads_dir }}/openjdk-18.0.1.1_linux-x64_bin.tar.gz"
-    - name: Have Java 18 unpacked
-      unarchive:
-        src: "{{ downloads_dir }}/openjdk-18.0.1.1_linux-x64_bin.tar.gz"
-        dest: "{{ jdks_dir }}"
-        remote_src: True
-        creates: "{{ jdks_dir }}/jdk-18.0.1.1"
-
     - name: Have Java 19
       get_url:
         url: https://download.java.net/java/GA/jdk19.0.1/afdd2e245b014143b62ccb916125e3ce/10/GPL/openjdk-19.0.1_linux-x64_bin.tar.gz
@@ -76,11 +65,6 @@
             link: /usr/bin/mvnDebug
             path: "{{ tools_dir }}/apache-maven-{{ maven_version }}/bin/mvnDebug"
 
-        - name: Have Java 18 as alternative
-          alternatives:
-            name: java_home
-            link: /usr/lib/jvm/java_home
-            path: "{{ jdks_dir }}/jdk-18.0.1.1"
         - name: Have Java 19 as alternative
           alternatives:
             name: java_home
