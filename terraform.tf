@@ -29,6 +29,14 @@ resource "hcloud_firewall" "common-firewall" {
       "${var.firewall_source_ip}/32"
     ]
   }
+
+  rule {
+    direction = "in"
+    protocol  = "icmp"
+    source_ips = [
+      "${var.firewall_source_ip}/32"
+    ]
+  }
 }
 
 resource "hcloud_server" "control" {
