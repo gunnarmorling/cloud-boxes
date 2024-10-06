@@ -23,6 +23,14 @@
      - zip
      - fail2ban
      - httpie
+     - hyperfine
+
+- name: Have SDKMan
+  become: no
+  shell: "curl -s 'https://get.sdkman.io' | bash"
+  args:
+    executable: /bin/bash
+    creates: /home/build/.sdkman/bin/sdkman-init.sh
 
 - name: Have .bashrc
   copy:

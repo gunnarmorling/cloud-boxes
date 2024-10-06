@@ -3,7 +3,6 @@
   remote_user: build
   roles:
      - base
-     - java
      - docker
 
   vars_files:

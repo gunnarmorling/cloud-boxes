@@ -2,12 +2,14 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "~> 1.10"
+      version = "~> 1.45"
     }
   }
 }
 
-variable "hcloud_token" {}
+variable "hcloud_token" {
+  sensitive = true
+}
 
 variable "firewall_source_ip" {
   default = "0.0.0.0"
@@ -41,9 +43,9 @@ resource "hcloud_firewall" "common-firewall" {
 
 resource "hcloud_server" "control" {
   name        = "control"
-  image       = "fedora-37"
-  location    = "fsn1"
-  server_type = "cx11"
+  image       = "fedora-40"
+  location    = "nbg1"
+  server_type = "cx22"
   keep_disk   = true
   ssh_keys    = ["key1"]
   firewall_ids = [hcloud_firewall.common-firewall.id]

@@ -22,7 +22,7 @@ terraform init
 Run this to provision the environment after adjusting the _terraform.tf_ file as needed:
 
 ```
-export TF_VAR_firewall_source_ip=`dig +short txt ch whoami.cloudflare @1.0.0.1
+export TF_VAR_firewall_source_ip=`dig +short txt ch whoami.cloudflare @1.0.0.1`
 terraform apply
 ```
 
