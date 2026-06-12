@@ -1,0 +1,3 @@
+# Connection port for all plays (the box's sshd listens here, configured by cloud-init).
+# `ssh_port` comes from the gitignored vars.local.yml, loaded by each play's vars_files.
+ansible_port: "{{ ssh_port }}"

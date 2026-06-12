@@ -1,0 +1,34 @@
+#cloud-config
+# Passed as the server's user_data. Creates the build user and configures sshd
+# (custom port + hardening) on first boot. ${ssh_port} and ${build_ssh_key} are
+# substituted by Terraform. The username must match `user` in ansible/vars.yml.
+
+users:
+  - name: build
+    groups: [wheel]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ${build_ssh_key}
+
+packages:
+  # provides `semanage`, needed to allow sshd to bind a non-standard port under SELinux
+  - policycoreutils-python-utils
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-custom-port.conf
+    content: |
+      Port ${ssh_port}
+  - path: /etc/ssh/sshd_config.d/10-hardening.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+
+runcmd:
+  # label the custom port so SELinux lets sshd bind it
+  - semanage port -a -t ssh_port_t -p tcp ${ssh_port} || semanage port -m -t ssh_port_t -p tcp ${ssh_port}
+  # open the port in the host firewall (firewalld)
+  - firewall-cmd --permanent --add-port=${ssh_port}/tcp
+  - firewall-cmd --reload
+  # apply the new port and hardening
+  - systemctl restart sshd

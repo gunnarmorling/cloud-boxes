@@ -1,0 +1,19 @@
+# Copy this file to local.auto.tfvars (gitignored) and fill in your own values.
+# Terraform auto-loads any *.auto.tfvars file.
+#
+# ssh_port:             random, non-standard SSH port. Feeds the Hetzner firewall rule
+#                       and cloud-init (cloud-init.yaml). Keep it in sync with vars.local.yml.
+# ssh_key_name:         name of the SSH key registered in your Hetzner project.
+# ssh_private_key_path: local path to the matching private key; used as IdentityFile
+#                       in the generated ansible/ssh_config.
+# servers:              boxes to create, keyed by hostname. The Ansible inventory (hosts)
+#                       is generated from this map. server_type is required; image and
+#                       location are optional (default fedora-44 / nbg1).
+ssh_port             = "22"
+ssh_key_name         = "my-hetzner-key"
+ssh_private_key_path = "~/.ssh/id_ed25519"
+
+servers = {
+  control = { server_type = "cx22" }
+  # worker = { server_type = "cx22", image = "fedora-44", location = "nbg1" }
+}
