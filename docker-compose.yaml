@@ -1,0 +1,30 @@
+#
+#  SPDX-License-Identifier: Apache-2.0
+#
+#  Copyright The original authors
+#
+#  Licensed under the Apache Software License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
+#
+
+services:
+  claude:
+    build: .
+    entrypoint: claude
+    stdin_open: true  # -i
+    tty: true         # -t
+    volumes:
+      - .:/workspace
+      - claude-config:/claude-config
+    environment:
+      - GH_TOKEN
+      - COLORTERM=truecolor
+      - CLAUDE_CONFIG_DIR=/claude-config
+    networks:
+      - claude-net
+
+volumes:
+  claude-config:
+
+networks:
+  claude-net:
+    driver: bridge

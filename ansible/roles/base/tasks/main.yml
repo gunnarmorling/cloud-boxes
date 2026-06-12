@@ -21,9 +21,11 @@
      - vim-enhanced
      - entr
      - zip
-     - fail2ban
+     # - fail2ban
      - httpie
      - hyperfine
+     - net-tools
+     - numactl
 
 - name: Have SDKMan
   become: no

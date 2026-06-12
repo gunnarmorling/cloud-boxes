@@ -1,7 +1,7 @@
 - name: Have docker repo
   become: true
   become_user: root
-  shell:  'dnf config-manager \
+  shell:  'dnf-3 config-manager \
     --add-repo \
     https://download.docker.com/linux/fedora/docker-ce.repo'
 - name: Have dnf cache updated
@@ -28,7 +28,7 @@
     - docker-ce
     - docker-ce-cli
     - containerd.io
-    - docker-compose
+    - docker-compose-plugin
     - docker-buildx-plugin
 
 - name: add docker group

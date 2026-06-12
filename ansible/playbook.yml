@@ -1,0 +1,31 @@
+---
+- hosts: all
+  remote_user: build
+  # Connects on the custom port (ansible_port from group_vars/all.yml -> ssh_port).
+
+  vars_files:
+    - vars.yml
+    - vars.local.yml
+
+  pre_tasks:
+    # cloud-init created the build user and hardened sshd at boot; verify it took.
+    - name: Read effective sshd configuration
+      become: true
+      command: /usr/sbin/sshd -T
+      changed_when: false
+      register: sshd_effective
+
+    - name: Assert SSH is hardened (root/password off, custom port active)
+      vars:
+        effective: "{{ sshd_effective.stdout | lower }}"
+      assert:
+        that:
+          - "'permitrootlogin no' in effective"
+          - "'passwordauthentication no' in effective"
+          - "('port ' ~ ssh_port) in effective"
+        fail_msg: "SSH is not in the expected hardened state — check cloud-init on the box."
+        success_msg: "SSH hardening verified (root/password disabled, port {{ ssh_port }})."
+
+  roles:
+     - base
+     - docker

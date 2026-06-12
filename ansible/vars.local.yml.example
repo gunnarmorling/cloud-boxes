@@ -1,0 +1,8 @@
+# Copy this file to vars.local.yml (gitignored) — local connection settings for Ansible.
+#
+# ssh_port:                     connection port (ansible_port, via group_vars/all.yml).
+#                              Must match local.auto.tfvars.
+# ansible_ssh_private_key_file: private key Ansible authenticates with (its public
+#                              half is the registered Hetzner key cloud-init installs).
+ssh_port: 22
+ansible_ssh_private_key_file: ~/.ssh/id_ed25519
