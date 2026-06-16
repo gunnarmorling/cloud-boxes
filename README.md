@@ -84,6 +84,50 @@ This is safe to re-run, and safe to run against a mix of existing and freshly ad
 boxes — every box self-configures at boot, so there is no per-host ordering to worry
 about.
 
+## Using AWS (manual EC2, no Terraform)
+
+The same Ansible setup works against an EC2 instance launched by hand — only the
+Hetzner bits (cloud-init bootstrap + the Terraform-generated inventory) need
+reproducing. `aws/user-data.yaml` is a ready-to-paste copy of the cloud-init that
+creates the `build` user and hardens sshd, so the playbook runs unchanged.
+
+1. **Key pair.** Ansible authenticates as `build` with the key from
+   `ansible/vars.local.yml` (`ansible_ssh_private_key_file`). cloud-init installs
+   its **public** half on the box, so the AWS key pair chosen in the launch wizard
+   is irrelevant (it only lands on the default `fedora`/`ec2-user` account). Reuse
+   an existing key or generate one:
+
+   ```shell
+   ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_aws
+   ```
+
+2. **Prepare user-data.** Copy `aws/user-data.yaml` and substitute the two
+   placeholders — `__SSH_PORT__` (your sshd port, matching `ssh_port` in
+   `vars.local.yml`) and `__BUILD_SSH_PUBLIC_KEY__` (contents of the `.pub` from
+   step 1). Keep the real port out of git: save the filled copy as
+   `aws/user-data.local.yaml` (gitignored) or just paste it without saving.
+
+3. **Launch the instance** in the EC2 console:
+   - **AMI:** a Fedora-family image (Fedora Cloud / Rocky / Alma) — the roles use
+     `dnf` and cloud-init uses firewalld + SELinux. Avoid Ubuntu.
+   - **Type:** e.g. `m7i.2xlarge` (8 vCPU / 32 GB, fixed performance, no burst).
+   - **Advanced details → User data:** paste the filled user-data from step 2.
+   - **Security group:** add an inbound rule for **TCP on your custom SSH port**
+     (not 22) from your IP — AWS filters ingress here, before the host firewall.
+
+4. **Point Ansible at the box.** Edit `ansible/hosts` (no longer Terraform-managed
+   in this flow):
+
+   ```
+   control ansible_host=<EC2 public IP or DNS>
+   ```
+
+5. **Provision** as usual from `ansible/`:
+
+   ```shell
+   ansible-playbook -i hosts playbook.yml
+   ```
+
 ## Shell access
 
 `terraform apply` also generates `ansible/ssh_config`, with port, user, key, and IP

@@ -1,0 +1,54 @@
+#cloud-config
+# Ready-to-paste EC2 user-data for a manually-launched instance (no Terraform).
+# Mirrors terraform/cloud-init.yaml: creates the build user and hardens sshd
+# (custom port + root/password off) on first boot, so the Ansible playbook's
+# pre_task assertions pass unchanged.
+#
+# Before pasting into the EC2 console (Advanced details -> User data), replace the
+# two placeholders below:
+#   __SSH_PORT__              the sshd port; must match `ssh_port` in
+#                             ansible/vars.local.yml (kept out of git).
+#   __BUILD_SSH_PUBLIC_KEY__  the PUBLIC key whose private half is
+#                             `ansible_ssh_private_key_file` in vars.local.yml,
+#                             e.g. the contents of ~/.ssh/id_ed25519_hetzner.pub.
+#
+# Keep the real port out of commits: substitute at paste-time, or save a filled
+# copy as aws/user-data.local.yaml (gitignored) — do not commit it.
+#
+# Requires a Fedora-family AMI (dnf + firewalld + SELinux). See README.
+
+users:
+  - name: build
+    groups: [wheel]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - __BUILD_SSH_PUBLIC_KEY__
+
+packages:
+  # provides `semanage`, needed to allow sshd to bind a non-standard port under SELinux
+  - policycoreutils-python-utils
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-custom-port.conf
+    content: |
+      Port __SSH_PORT__
+  - path: /etc/ssh/sshd_config.d/10-hardening.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      # Server-side keepalive: drop dead clients but keep live idle ones
+      # from being reaped by an intermediate NAT/firewall.
+      ClientAliveInterval 60
+      ClientAliveCountMax 3
+
+runcmd:
+  # label the custom port so SELinux lets sshd bind it
+  - semanage port -a -t ssh_port_t -p tcp __SSH_PORT__ || semanage port -m -t ssh_port_t -p tcp __SSH_PORT__
+  # open the port in the host firewall (firewalld). AWS Security Groups are the
+  # primary ingress filter; drop these two lines on AMIs without firewalld (e.g.
+  # Amazon Linux 2023).
+  - firewall-cmd --permanent --add-port=__SSH_PORT__/tcp
+  - firewall-cmd --reload
+  # apply the new port and hardening
+  - systemctl restart sshd
