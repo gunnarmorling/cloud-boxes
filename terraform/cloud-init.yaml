@@ -23,6 +23,10 @@ write_files:
     content: |
       PermitRootLogin no
       PasswordAuthentication no
+      # Server-side keepalive: drop dead clients but keep live idle ones
+      # from being reaped by an intermediate NAT/firewall.
+      ClientAliveInterval 60
+      ClientAliveCountMax 3
 
 runcmd:
   # label the custom port so SELinux lets sshd bind it

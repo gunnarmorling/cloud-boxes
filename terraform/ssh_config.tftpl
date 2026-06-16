@@ -6,4 +6,8 @@ Host ${name}
     User build
     Port ${ssh_port}
     IdentityFile ${identity_file}
+    # Keep idle connections alive so a NAT/firewall doesn't reap the flow
+    # (the cause of "client_loop: send disconnect: Broken pipe").
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
 %{ endfor ~}
