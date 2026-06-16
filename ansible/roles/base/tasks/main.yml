@@ -34,6 +34,14 @@
     executable: /bin/bash
     creates: /home/build/.sdkman/bin/sdkman-init.sh
 
+- name: Have async-profiler
+  become: true
+  ansible.builtin.unarchive:
+    src: https://github.com/async-profiler/async-profiler/releases/download/v{{ async_profiler_version }}/async-profiler-{{ async_profiler_version }}-linux-x64.tar.gz
+    dest: /opt
+    remote_src: true
+    creates: /opt/async-profiler-{{ async_profiler_version }}-linux-x64
+
 - name: Have .bashrc
   copy:
     src: user_bashrc

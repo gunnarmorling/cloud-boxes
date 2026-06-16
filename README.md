@@ -92,3 +92,16 @@ filled in per box, so to get a shell just run (from the repo root):
 ```shell
 ssh -F ansible/ssh_config control
 ```
+
+The same config works for `scp` — the `control` alias resolves the host, user,
+port, and key, so no need to repeat `-P`/`-i`:
+
+```shell
+# local -> remote
+scp -F ansible/ssh_config ./localfile control:/remote/path/
+
+# remote -> local
+scp -F ansible/ssh_config control:/remote/path/file ./
+```
+
+Add `-r` for directories.
