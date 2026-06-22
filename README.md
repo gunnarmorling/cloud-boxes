@@ -228,3 +228,13 @@ The one thing to internalise: `Ctrl-b` is a *prefix* — press and release it,
 together). If `tmux attach` says "no sessions," nothing is running — it either
 finished or was never started. You can ignore tmux's window/pane features
 entirely; none of them are needed just to keep a command alive.
+
+To **see earlier output** after reattaching, enter copy mode with `Ctrl-b [`
+and scroll up (`q` to exit). But the scrollback buffer is capped (2000 lines by
+default), so for the *full* stdout of a long run, capture it to a file instead —
+this survives a buffer overflow and the session being killed, not just a
+disconnect:
+
+```shell
+./my-long-command 2>&1 | tee run.log    # on screen now, full record in run.log
+```
