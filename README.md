@@ -111,6 +111,10 @@ creates the `build` user and hardens sshd, so the playbook runs unchanged.
    - **AMI:** a Fedora-family image (Fedora Cloud / Rocky / Alma) — the roles use
      `dnf` and cloud-init uses firewalld + SELinux. Avoid Ubuntu.
    - **Type:** e.g. `m7i.2xlarge` (8 vCPU / 32 GB, fixed performance, no burst).
+   - **Root volume:** `gp3`, ~30–60 GB — cheapest tier, with 3,000 IOPS /
+     125 MB/s baseline regardless of size (gp2 ties IOPS to capacity; skip it).
+     If disk I/O is part of the benchmark, don't use the EBS root — pick a
+     `*d` instance type with local NVMe (e.g. `m7id.2xlarge`) instead.
    - **Advanced details → User data:** paste the filled user-data from step 2.
    - **Security group:** add an inbound rule for **TCP on your custom SSH port**
      (not 22) from your IP — AWS filters ingress here, before the host firewall.
@@ -127,6 +131,40 @@ creates the `build` user and hardens sshd, so the playbook runs unchanged.
    ```shell
    ansible-playbook -i hosts playbook.yml
    ```
+
+### Troubleshooting SSH
+
+Can't connect after the box was running fine before? Two AWS-specific gotchas,
+both of which present as a **connection timeout** (not "refused"):
+
+- **The public IP changed after a stop/start.** Stopping and starting an instance
+  (what you do to save money — a plain *reboot* keeps the IP) assigns a **new
+  public IP**, since there's no Elastic IP attached. The old IP in `ansible/hosts`
+  is now dead. Grab the new one from the console, or:
+
+  ```shell
+  aws ec2 describe-instances --query 'Reservations[].Instances[].PublicIpAddress'
+  ```
+
+  then update `control ansible_host=...` in `ansible/hosts`. To avoid this for
+  good, allocate an **Elastic IP** and associate it — it survives stop/start and
+  is free while the instance runs.
+
+- **The security-group source IP doesn't match yours.** The console's "My IP"
+  button fills in the IP *as your browser appears to AWS*, which is often not the
+  address your SSH client egresses from — common when the console captured your
+  **IPv6** but `ssh` went out over IPv4, or a VPN/proxy is on one but not the
+  other. Don't trust the button; read the real value from the **same machine you
+  SSH from** and paste that `/32`:
+
+  ```shell
+  curl -4 ifconfig.me      # IPv4 — add a /32 rule for this
+  curl -6 ifconfig.me      # IPv6 — add a /128 rule if you SSH over v6
+  ```
+
+Quick triage by error: `Connection timed out` → wrong target IP or SG blocking
+your client; `Connection refused` → reached the host, wrong port/sshd;
+`Permission denied` → networking is fine, it's a key/user problem.
 
 ## Shell access
 
