@@ -26,6 +26,7 @@
      - hyperfine
      - net-tools
      - numactl
+     - tmux
 
 - name: Have SDKMan
   become: no

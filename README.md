@@ -187,3 +187,44 @@ scp -F ansible/ssh_config control:/remote/path/file ./
 ```
 
 Add `-r` for directories.
+
+## Keeping commands alive across disconnects
+
+A command started in a plain SSH session is killed when the connection drops:
+the remote shell gets `SIGHUP` and passes it on to its jobs. For long-running
+benchmarks or profiling runs, start them inside `tmux` (installed by the base
+role) so they survive a dropped connection, a closed laptop, or a lost VPN.
+
+The whole loop:
+
+```shell
+# 1. SSH into the box, then start a session:
+tmux
+
+# 2. Run whatever you want — it's a normal shell now:
+./my-long-command
+
+# 3. Detach, leaving it running: press Ctrl-b, release, then press d
+```
+
+Now you can disconnect freely; the command keeps running on the server. Later,
+SSH back in and reattach exactly where you left off, with live output:
+
+```shell
+tmux attach
+```
+
+The commands you'll actually use:
+
+```shell
+tmux              # start a new session
+tmux attach       # reattach after reconnecting
+tmux ls           # list running sessions
+Ctrl-b  d         # detach (leave it running)
+```
+
+The one thing to internalise: `Ctrl-b` is a *prefix* — press and release it,
+*then* press the command key (so detach is `Ctrl-b` then `d`, not held
+together). If `tmux attach` says "no sessions," nothing is running — it either
+finished or was never started. You can ignore tmux's window/pane features
+entirely; none of them are needed just to keep a command alive.
