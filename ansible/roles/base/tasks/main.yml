@@ -27,6 +27,7 @@
      - net-tools
      - numactl
      - tmux
+     - librsvg2-tools
 
 - name: Have SDKMan
   become: no
