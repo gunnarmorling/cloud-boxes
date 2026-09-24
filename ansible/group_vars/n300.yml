@@ -1,0 +1,16 @@
+# Connection + bootstrap vars for the local N300 bench box (the `n300` group).
+# Committed: port 22 and local key paths hold no secrets. The box's LAN IP and
+# installer admin user are kept out of git in the gitignored n300.local.yml
+# (see n300.local.yml.example).
+#
+# Note: deliberately NOT setting ansible_user here. An inventory `ansible_user`
+# would override each play's `remote_user`, but the two N300 playbooks need
+# different connection users: n300-bootstrap.yml connects as the admin user to
+# create `build`, then n300.yml connects as `build`. Leaving the user to the
+# `remote_user` keyword keeps both working.
+ansible_port: 22
+ansible_ssh_private_key_file: ~/.ssh/n300   # the dedicated key from runbook §5
+
+# Public half of the n300 key, installed into build's authorized_keys by the
+# bootstrap play (its private half is ansible_ssh_private_key_file above).
+n300_pubkey: ~/.ssh/n300.pub

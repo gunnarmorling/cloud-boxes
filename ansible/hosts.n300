@@ -1,0 +1,7 @@
+# Inventory for the local N300 bench box (manual Fedora install, not Terraform-
+# managed — unlike the gitignored `hosts`, which Terraform regenerates).
+# The LAN IP comes from the gitignored n300.local.yml (copy it from
+# n300.local.yml.example), loaded by both N300 playbooks' vars_files.
+# Port and key come from group_vars/n300.yml.
+[n300]
+n300box ansible_host="{{ n300_host }}"

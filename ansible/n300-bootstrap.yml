@@ -1,0 +1,40 @@
+---
+# One-time bootstrap for the local N300 bench box — the cloud-init equivalent.
+# On Hetzner, cloud-init creates the uniform `build` user at first boot; the N300
+# was installed by hand (runbook §5) with a personal admin user instead. This
+# play connects as that admin user and creates `build` so the rest of the tooling
+# (all hardcoded to /home/build) runs unchanged via n300.yml.
+#
+# Run once:  ansible-playbook -i hosts.n300 n300-bootstrap.yml -K
+# The -K prompts for the admin user's sudo password (Fedora's default wheel rule
+# requires one). After this, `build` has NOPASSWD sudo, so n300.yml needs no -K.
+- hosts: n300
+  remote_user: "{{ n300_admin_user }}"
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - n300.local.yml      # n300_host (used by hosts.n300), n300_admin_user
+
+  tasks:
+    - name: Create the build user
+      become_user: root
+      user:
+        name: build
+        groups: wheel
+        shell: /bin/bash
+        state: present
+
+    - name: Passwordless sudo for build
+      become_user: root
+      copy:
+        dest: /etc/sudoers.d/build
+        content: "build ALL=(ALL) NOPASSWD:ALL\n"
+        mode: "0440"
+        validate: "visudo -cf %s"
+
+    - name: Install build's authorized key (the dedicated n300 key)
+      become_user: root
+      ansible.posix.authorized_key:
+        user: build
+        key: "{{ lookup('file', n300_pubkey) }}"

@@ -1,0 +1,15 @@
+# Bench tooling for the N300 (runbook §6). Git comes from the base role, JDKs
+# from SDKMan (also base) — no Fedora JDK.
+- name: Have bench tools
+  become: true
+  become_user: root
+  dnf: name={{item}} state=latest
+  with_items:
+     # JMH perf* profilers (perfasm, perfnorm, perfc2c)
+     - perf
+     # cpupower + turbostat, for clock pinning and checking it (runbook §8)
+     - kernel-tools
+     # sustained load for the clock/thermal checks (runbook §8, §12)
+     - stress-ng
+     # Capstone backend for building hsdis (runbook §10)
+     - capstone-devel

@@ -1,0 +1,57 @@
+---
+# Provision the local N300 bench box, reusing the existing `base` role. Connects
+# as the `build` user created by n300-bootstrap.yml. Idempotent — safe to re-run.
+#
+#   ansible-playbook -i hosts.n300 n300.yml
+#
+# Deliberately does NOT load vars.local.yml (that holds the Hetzner port/key); it
+# loads vars.yml, which the base role needs for `user: build`, and n300.local.yml
+# for the box's IP. The docker role is omitted — its always-on daemon works
+# against the quiet, low-noise measurement environment this box exists for
+# (runbook §9). The n300_bench role installs the runbook §6 packages; the rest
+# of the bench setup (runbook §7–§9) is a planned follow-up.
+- hosts: n300
+  remote_user: build
+
+  vars_files:
+    - vars.yml            # user: build (needed by the base role)
+    - n300.local.yml      # n300_host (the box's LAN IP, used by hosts.n300)
+
+  pre_tasks:
+    # The N300 is a LAN-only box on port 22 (no cloud-init custom port/hardening
+    # like Hetzner), so we assert only what runbook §5 guarantees: password auth
+    # off. The full Hetzner check (custom port + PermitRootLogin no) lives in
+    # playbook.yml and does not apply here.
+    - name: Read effective sshd configuration
+      become: true
+      command: /usr/sbin/sshd -T
+      changed_when: false
+      register: sshd_effective
+
+    - name: Assert password auth is disabled
+      assert:
+        that:
+          - "'passwordauthentication no' in (sshd_effective.stdout | lower)"
+        fail_msg: "Password auth still enabled on the N300 — re-check runbook §5."
+        success_msg: "SSH password auth disabled."
+
+    # Fedora 44 defaults to dnf5; Ansible's dnf module needs the python3-libdnf5
+    # bindings, which a minimal Server install omits. Install them with the
+    # command module (which doesn't need them) before the base role's dnf tasks
+    # run. Idempotent via the rpm -q guard. (Hetzner's older, dnf4-era Fedora
+    # ships the dnf4 bindings, so playbook.yml doesn't need this.)
+    - name: Check for the dnf5 Python bindings
+      become: true
+      command: rpm -q python3-libdnf5
+      register: libdnf5_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install python3-libdnf5 so the dnf module works on Fedora (dnf5)
+      become: true
+      command: dnf -y install python3-libdnf5
+      when: libdnf5_check.rc != 0
+
+  roles:
+    - base
+    - n300_bench

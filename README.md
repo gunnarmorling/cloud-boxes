@@ -166,6 +166,15 @@ Quick triage by error: `Connection timed out` → wrong target IP or SG blocking
 your client; `Connection refused` → reached the host, wrong port/sshd;
 `Permission denied` → networking is fine, it's a key/user problem.
 
+## Using the local N300 bench box
+
+The local N300 bench box is covered end to end — from ISO download and install
+through Ansible provisioning to benchmark setup — in
+[`n300/n300-bench-runbook.md`](n300/n300-bench-runbook.md). It's provisioned with
+the same Ansible `base` role as the cloud boxes, via its own inventory and
+playbooks (`ansible/hosts.n300`, `n300-bootstrap.yml`, `n300.yml`); the Hetzner
+and AWS flows above don't apply to it.
+
 ## Shell access
 
 `terraform apply` also generates `ansible/ssh_config`, with port, user, key, and IP

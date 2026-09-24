@@ -8,6 +8,7 @@
 # Local, non-committed values (keep personal/secret config out of the public repo)
 *.auto.tfvars
 vars.local.yml
+n300.local.yml
 # Filled-in EC2 user-data (contains the real SSH port); paste-time copy only
 aws/user-data.local.yaml
 
