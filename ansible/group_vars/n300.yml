@@ -9,7 +9,7 @@
 # create `build`, then n300.yml connects as `build`. Leaving the user to the
 # `remote_user` keyword keeps both working.
 ansible_port: 22
-ansible_ssh_private_key_file: ~/.ssh/n300   # the dedicated key from runbook §5
+ansible_ssh_private_key_file: ~/.ssh/n300   # the dedicated key from n300/install.md §5
 
 # Public half of the n300 key, installed into build's authorized_keys by the
 # bootstrap play (its private half is ansible_ssh_private_key_file above).

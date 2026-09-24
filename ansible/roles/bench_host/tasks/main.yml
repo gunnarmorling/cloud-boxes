@@ -1,0 +1,12 @@
+# Host-level measurement control for bench boxes: profiling-setup pins the clock,
+# unlocks the PMU and quiets background timers for one session, then restores
+# them. Installed system-wide so every session on the host runs the same copy
+# against the same saved state (/run/profiling-setup.state) and the host's own
+# calibration (/etc/profiling-setup.conf, written by `calibrate --save`).
+- name: Have profiling-setup
+  become: true
+  become_user: root
+  copy:
+    src: profiling-setup
+    dest: /usr/local/sbin/profiling-setup
+    mode: "0755"

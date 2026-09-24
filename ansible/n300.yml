@@ -8,8 +8,9 @@
 # loads vars.yml, which the base role needs for `user: build`, and n300.local.yml
 # for the box's IP. The docker role is omitted — its always-on daemon works
 # against the quiet, low-noise measurement environment this box exists for
-# (runbook §9). The n300_bench role installs the runbook §6 packages; the rest
-# of the bench setup (runbook §7–§9) is a planned follow-up.
+# (n300/benchmark.md). The n300_bench role installs the bench packages; bench_host
+# installs profiling-setup, which applies and reverts per-session benchmark state
+# (clock pin, PMU access, quiet timers) rather than configuring it permanently.
 - hosts: n300
   remote_user: build
 
@@ -19,7 +20,7 @@
 
   pre_tasks:
     # The N300 is a LAN-only box on port 22 (no cloud-init custom port/hardening
-    # like Hetzner), so we assert only what runbook §5 guarantees: password auth
+    # like Hetzner), so we assert only what n300/install.md §5 guarantees: password auth
     # off. The full Hetzner check (custom port + PermitRootLogin no) lives in
     # playbook.yml and does not apply here.
     - name: Read effective sshd configuration
@@ -32,7 +33,7 @@
       assert:
         that:
           - "'passwordauthentication no' in (sshd_effective.stdout | lower)"
-        fail_msg: "Password auth still enabled on the N300 — re-check runbook §5."
+        fail_msg: "Password auth still enabled on the N300 — re-check n300/install.md §5."
         success_msg: "SSH password auth disabled."
 
     # Fedora 44 defaults to dnf5; Ansible's dnf module needs the python3-libdnf5
@@ -55,3 +56,4 @@
   roles:
     - base
     - n300_bench
+    - bench_host

@@ -169,11 +169,16 @@ your client; `Connection refused` → reached the host, wrong port/sshd;
 ## Using the local N300 bench box
 
 The local N300 bench box is covered end to end — from ISO download and install
-through Ansible provisioning to benchmark setup — in
-[`n300/n300-bench-runbook.md`](n300/n300-bench-runbook.md). It's provisioned with
+through Ansible provisioning, maintenance and benchmark sessions — in
+[`n300/`](n300/README.md). It's provisioned with
 the same Ansible `base` role as the cloud boxes, via its own inventory and
 playbooks (`ansible/hosts.n300`, `n300-bootstrap.yml`, `n300.yml`); the Hetzner
 and AWS flows above don't apply to it.
+
+[`n300/claude-skill/`](n300/claude-skill/SKILL.md) is a Claude Code skill for
+working on the box (access, shared-box rules, pushing code to it). Symlink the
+directory into the Claude config as `skills/n300-profiling`; it reads the box's
+IP from `ansible/n300.local.yml`.
 
 ## Shell access
 

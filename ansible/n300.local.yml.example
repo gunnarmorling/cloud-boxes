@@ -1,9 +1,9 @@
 # Copy this file to n300.local.yml (gitignored) — local values for the N300 bench box.
 # Both N300 playbooks load it via vars_files.
 #
-# n300_host:       the box's LAN IP or hostname (runbook §5); hosts.n300 reads it
+# n300_host:       the box's LAN IP or hostname (n300/install.md §5); hosts.n300 reads it
 #                  as ansible_host.
-# n300_admin_user: the admin user you created in the Anaconda installer (runbook
-#                  §5). Used once, by n300-bootstrap.yml, to create `build`.
+# n300_admin_user: the admin user you created in the Anaconda installer
+#                  (n300/install.md §5). Used once, by n300-bootstrap.yml, to create `build`.
 n300_host: 192.168.1.50
 n300_admin_user: admin

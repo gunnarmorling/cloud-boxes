@@ -1,7 +1,7 @@
 ---
 # One-time bootstrap for the local N300 bench box — the cloud-init equivalent.
 # On Hetzner, cloud-init creates the uniform `build` user at first boot; the N300
-# was installed by hand (runbook §5) with a personal admin user instead. This
+# was installed by hand (n300/install.md §5) with a personal admin user instead. This
 # play connects as that admin user and creates `build` so the rest of the tooling
 # (all hardcoded to /home/build) runs unchanged via n300.yml.
 #

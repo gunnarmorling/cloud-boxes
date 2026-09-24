@@ -1,0 +1,446 @@
+#!/usr/bin/env bash
+#
+# profiling-setup — put a Linux box into a stable, perf-enabled state for
+# benchmarking, then restore it afterwards. Installed on bench hosts as
+# /usr/local/sbin/profiling-setup by the `bench_host` Ansible role, so every
+# session on a host runs the same copy against the same saved state.
+#
+#   sudo profiling-setup apply     # enter profiling mode (saves prior state)
+#   sudo profiling-setup restore   # put everything back exactly
+#        profiling-setup status    # show current values (no root needed)
+#        profiling-setup check     # snapshot state + profiling-readiness self-test
+#   sudo profiling-setup guard -- <cmd...>   # run <cmd>, then report whether it
+#                                            # throttled (thermal or power-limited)
+#   sudo profiling-setup calibrate [secs] [--pin] [--save]
+#                                  # find the sustainable all-core clock; --pin caps
+#                                  # scaling_max_freq there (reverted by `restore`);
+#                                  # --save records it in /etc/profiling-setup.conf
+#   sudo profiling-setup pin       # cap scaling_max_freq at the saved calibration
+#                                  # (reverted by `restore`)
+#
+# Why each knob matters for trustworthy numbers:
+#
+#   * kernel.perf_event_paranoid — gates unprivileged access to perf_events.
+#     Lowered to 1 so perfasm / async-profiler can attribute KERNEL frames for
+#     your own process. System-wide measurements (`perf stat -a`, e.g. the uncore
+#     IMC memory-bandwidth counters) still need root or paranoid<=0 — override
+#     with PARANOID=0 ./profiling-setup.sh apply if you want unprivileged -a.
+#   * kernel.kptr_restrict — exposes kernel symbol addresses so those kernel
+#     samples resolve to names instead of hex.
+#   * CPU frequency governor -> performance — pins cores near max so timings
+#     don't drift with on-demand scaling (the #1 source of run-to-run noise).
+#   * Turbo / boost -> disabled — for REPRODUCIBILITY: turbo clocks vary with
+#     temperature and active-core count, so leaving it on makes numbers wander.
+#     Trade-off: lower absolute throughput, but stable. Comment out turbo_apply /
+#     turbo_restore below to keep turbo on.
+#   * Background timers (dnf-makecache, fstrim, dnf5-automatic) -> stopped for
+#     the session, so a metadata refresh or SSD trim can't land mid-measurement.
+#     Only timers that were active are stopped, and `restore` restarts exactly those.
+#
+# The saved state lives under /run, which is cleared at boot — as is every
+# sysctl/sysfs value it records — so a reboot always ends profiling mode cleanly.
+#
+# Add future knobs by writing an <knob>_apply / <knob>_restore pair that calls
+# save_original once, and wiring them into the apply/restore/status cases.
+#
+set -euo pipefail
+
+STATE_FILE="${PROFILING_SETUP_STATE:-/run/profiling-setup.state}"
+CONF_FILE="${PROFILING_SETUP_CONF:-/etc/profiling-setup.conf}"   # written by `calibrate --save`
+PARANOID_PROFILE="${PARANOID:-1}"   # 1 = own-process incl. kernel frames; 0 = also unprivileged system-wide
+GOV_GLOB=/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+require_root() {
+    if [[ ${EUID} -ne 0 ]]; then
+        echo "This command writes sysctl/sysfs and must run as root: sudo $0 $1" >&2
+        exit 1
+    fi
+}
+
+# Record a pre-profiling value once — the first apply wins, so re-applying never
+# clobbers the true original with an already-profiling value.
+save_original() {
+    grep -q "^$1=" "${STATE_FILE}" 2>/dev/null && return 0
+    echo "$1=$2" >> "${STATE_FILE}"
+}
+get_original() { sed -n "s/^$1=//p" "${STATE_FILE}" 2>/dev/null | head -1; }
+
+# --- sysctl-backed knobs (perf_event_paranoid, kptr_restrict) ---
+sysctl_apply() {   # name target
+    local cur
+    cur="$(sysctl -n "$1" 2>/dev/null)" || { printf '  %-28s (not present, skipped)\n' "$1"; return 0; }
+    [[ -n "${cur}" ]] || { printf '  %-28s (not present, skipped)\n' "$1"; return 0; }
+    save_original "$1" "${cur}"
+    sysctl -q -w "$1=$2"
+    printf '  %-28s %s -> %s\n' "$1" "${cur}" "$2"
+    return 0
+}
+sysctl_restore() {
+    local orig; orig="$(get_original "$1")"
+    [[ -n "${orig}" ]] && sysctl -q -w "$1=${orig}" && printf '  %-28s -> %s\n' "$1" "${orig}"
+    return 0
+}
+
+# --- CPU frequency governor (assumes homogeneous cores) ---
+governor_apply() {
+    local first; first="$(cat ${GOV_GLOB} 2>/dev/null | head -1 || true)"
+    [[ -z "${first}" ]] && { echo "  (no cpufreq governor on this box; skipping)"; return; }
+    save_original scaling_governor "${first}"
+    local f; for f in ${GOV_GLOB}; do echo performance > "${f}"; done
+    printf '  %-28s %s -> performance\n' scaling_governor "${first}"
+}
+governor_restore() {
+    local orig; orig="$(get_original scaling_governor)"; [[ -z "${orig}" ]] && return
+    local f; for f in ${GOV_GLOB}; do echo "${orig}" > "${f}" 2>/dev/null || true; done
+    printf '  %-28s -> %s\n' scaling_governor "${orig}"
+}
+
+# --- turbo / boost (whichever interface the platform exposes) ---
+turbo_apply() {
+    if [[ -w /sys/devices/system/cpu/intel_pstate/no_turbo ]]; then
+        save_original intel_no_turbo "$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)"
+        echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
+        printf '  %-28s -> 1 (turbo OFF)\n' intel_pstate/no_turbo
+    elif [[ -w /sys/devices/system/cpu/cpufreq/boost ]]; then
+        save_original cpufreq_boost "$(cat /sys/devices/system/cpu/cpufreq/boost)"
+        echo 0 > /sys/devices/system/cpu/cpufreq/boost
+        printf '  %-28s -> 0 (turbo OFF)\n' cpufreq/boost
+    else
+        echo "  (no turbo/boost control found; skipping)"
+    fi
+}
+turbo_restore() {
+    local v
+    v="$(get_original intel_no_turbo)"
+    [[ -n "${v}" ]] && echo "${v}" > /sys/devices/system/cpu/intel_pstate/no_turbo && printf '  %-28s -> %s\n' intel_pstate/no_turbo "${v}"
+    v="$(get_original cpufreq_boost)"
+    [[ -n "${v}" ]] && echo "${v}" > /sys/devices/system/cpu/cpufreq/boost && printf '  %-28s -> %s\n' cpufreq/boost "${v}"
+    return 0
+}
+
+# --- transparent huge pages (runtime, revertible) ---
+THP_FILE=/sys/kernel/mm/transparent_hugepage/enabled
+thp_apply() {
+    [[ -w "${THP_FILE}" ]] || { echo "  (no THP control; skipping)"; return 0; }
+    local cur; cur="$(sed -n 's/.*\[\([a-z]*\)\].*/\1/p' "${THP_FILE}")"
+    save_original thp "${cur}"
+    echo "${THP:-madvise}" > "${THP_FILE}"
+    printf '  %-28s %s -> %s\n' transparent_hugepage "${cur}" "${THP:-madvise}"
+    return 0
+}
+thp_restore() {
+    local orig; orig="$(get_original thp)"; [[ -z "${orig}" ]] && return 0
+    echo "${orig}" > "${THP_FILE}" 2>/dev/null || true
+    printf '  %-28s -> %s\n' transparent_hugepage "${orig}"
+    return 0
+}
+
+# --- background timers (stopped for the session, not masked) ---
+QUIET_TIMERS="dnf-makecache.timer fstrim.timer dnf5-automatic.timer"
+timers_apply() {
+    command -v systemctl >/dev/null 2>&1 || { echo "  (no systemd; skipping timers)"; return 0; }
+    local t active=()
+    for t in ${QUIET_TIMERS}; do
+        systemctl is-active --quiet "${t}" && active+=("${t}")
+    done
+    save_original timers_stopped "${active[*]:-}"
+    (( ${#active[@]} )) && systemctl stop "${active[@]}"
+    printf '  %-28s %s\n' timers "stopped: ${active[*]:-(none active)}"
+    return 0
+}
+timers_restore() {
+    local orig; orig="$(get_original timers_stopped)"; [[ -z "${orig}" ]] && return 0
+    # shellcheck disable=SC2086  # word-split the saved list on purpose
+    systemctl start ${orig} && printf '  %-28s %s\n' timers "restarted: ${orig}"
+    return 0
+}
+
+# --- scaling_max_freq restore (paired with the pin from `calibrate --pin`) ---
+maxfreq_restore() {
+    local orig; orig="$(get_original scaling_max_freq)"; [[ -z "${orig}" ]] && return 0
+    local f; for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do echo "${orig}" > "${f}" 2>/dev/null || true; done
+    printf '  %-28s -> %s\n' scaling_max_freq "${orig}"
+    return 0
+}
+
+# --- clock pin: governor performance + scaling_max_freq cap (shared by calibrate --pin and pin) ---
+pin_apply() {   # khz
+    save_original scaling_governor "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || true)"
+    save_original scaling_max_freq "$(freq_ceiling_khz)"
+    local f
+    for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > "${f}" 2>/dev/null || true; done
+    for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq;  do echo "$1"     > "${f}" 2>/dev/null || true; done
+    echo "  PINNED scaling_max_freq at $(awk "BEGIN{printf \"%.2f GHz\", $1/1e6}") (governor performance). 'restore' reverts."
+    if [[ "$(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo 0)" == 1 ]]; then
+        echo "  WARNING: turbo is off (intel_pstate/no_turbo=1), so the clock stays at base, below the pin." >&2
+    fi
+}
+
+conf_value() { sed -n "s/^$1=//p" "${CONF_FILE}" 2>/dev/null | head -1; }
+
+pin() {
+    require_root pin
+    local khz; khz="$(conf_value PIN_KHZ)"
+    [[ "${khz}" =~ ^[0-9]+$ ]] || { echo "No PIN_KHZ in ${CONF_FILE}; run 'sudo $0 calibrate 90 --save' on an idle box first." >&2; exit 1; }
+    echo "Pinning at the calibration saved $(conf_value CALIBRATED) (${CONF_FILE}):"
+    pin_apply "${khz}"
+}
+
+# --- throttle / thermal / power inspection (for check + guard) ---
+sum_throttle() {   # cumulative thermal-throttle events across all cores + package
+    local sum=0 f v
+    for f in /sys/devices/system/cpu/cpu*/thermal_throttle/core_throttle_count \
+             /sys/devices/system/cpu/cpu*/thermal_throttle/package_throttle_count; do
+        [[ -r "${f}" ]] || continue
+        v="$(cat "${f}" 2>/dev/null)"; [[ -n "${v}" ]] && sum=$(( sum + v ))
+    done
+    echo "${sum}"
+}
+
+rapl_energy_uj() {   # summed package-domain energy (microjoules); empty if unreadable (needs root)
+    local sum=0 f v got=
+    for f in /sys/class/powercap/intel-rapl:[0-9]/energy_uj; do
+        [[ -r "${f}" ]] || continue
+        v="$(cat "${f}" 2>/dev/null)" || continue
+        [[ -n "${v}" ]] && { sum=$(( sum + v )); got=1; }
+    done
+    [[ -n "${got}" ]] && echo "${sum}"
+    return 0
+}
+
+pkg_temp_c() {   # package temperature in whole degrees C; empty if none
+    local zone type t best=
+    for zone in /sys/class/thermal/thermal_zone*; do
+        [[ -r "${zone}/temp" ]] || continue
+        t="$(cat "${zone}/temp" 2>/dev/null)"; [[ -n "${t}" ]] || continue
+        type="$(cat "${zone}/type" 2>/dev/null)"
+        [[ "${type}" == "x86_pkg_temp" ]] && { echo $(( t / 1000 )); return; }
+        [[ -z "${best}" || "${t}" -gt "${best}" ]] && best="${t}"
+    done
+    [[ -n "${best}" ]] && echo $(( best / 1000 ))
+    return 0
+}
+
+freq_ceiling_khz() { cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 2>/dev/null || true; }
+freq_base_khz()    { cat /sys/devices/system/cpu/cpu0/cpufreq/base_frequency  2>/dev/null || true; }
+
+check() {
+    local thr temp rapl cur ceil
+    thr="$(sum_throttle)"; temp="$(pkg_temp_c)"; rapl="$(rapl_energy_uj)"
+    cur="$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null || true)"
+    ceil="$(freq_ceiling_khz)"; local base; base="$(freq_base_khz)"
+    echo "governor            : $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null)"
+    [[ -n "${cur}"  ]] && echo "cur freq (cpu0)     : $(awk "BEGIN{printf \"%.2f GHz\", ${cur}/1e6}")"
+    [[ -n "${ceil}" ]] && echo "policy ceiling      : $(awk "BEGIN{printf \"%.2f GHz\", ${ceil}/1e6}") (respects turbo/no_turbo)"
+    [[ -n "${base}" ]] && echo "sustainable base    : $(awk "BEGIN{printf \"%.2f GHz\", ${base}/1e6}")"
+    [[ -n "${temp}" ]] && echo "package temp        : ${temp} C"
+    echo "thermal throttles   : ${thr} (cumulative core+pkg events since boot)"
+    [[ -n "${rapl}" ]] && echo "rapl power          : readable" || echo "rapl power          : not readable (needs root; try: sudo $0 check)"
+    echo "-- profiling readiness --"
+    if command -v perf >/dev/null 2>&1; then
+        if perf stat -e cycles true 2>&1 | grep -qiE 'not supported|not counted|<not'; then
+            echo "perf PMU (cycles)   : NOT counting (check paranoid / virtualization)"
+        else echo "perf PMU (cycles)   : OK"; fi
+    else echo "perf                : not installed"; fi
+    local jbin jlib
+    jbin="$(command -v java 2>/dev/null || true)"
+    if [[ -n "${jbin}" ]]; then
+        jlib="$(dirname "$(dirname "$(readlink -f "${jbin}")")")/lib"
+        ls "${jlib}"/hsdis-* >/dev/null 2>&1 \
+            && echo "hsdis (JDK lib)     : present (perfasm can disassemble)" \
+            || echo "hsdis (JDK lib)     : MISSING (perfasm shows addresses only)"
+    else echo "java                : not on PATH"; fi
+    return 0
+}
+
+# guard -- <command...> : run the command, then report whether it was throttled.
+# core_throttle_count catches THERMAL throttling; comparing the busy clock
+# (cycles / CPU-time) against the policy ceiling catches POWER-limit (PL1)
+# throttling, which leaves the thermal counter untouched.
+guard() {
+    [[ "${1:-}" == "--" ]] && shift
+    [[ $# -ge 1 ]] || { echo "usage: $0 guard -- <command...>" >&2; exit 2; }
+    local thr0 thr1 e0 e1 t0 t1 pf rc=0 elapsed cyc tc ghz ceil base watts dthr
+    thr0="$(sum_throttle)"; e0="$(rapl_energy_uj)"; t0="$(pkg_temp_c)"
+    pf="$(mktemp)"
+    if command -v perf >/dev/null 2>&1; then
+        LC_ALL=C perf stat -e cycles,task-clock -o "${pf}" -- "$@" || rc=$?
+    else
+        local s e; s="$(date +%s.%N)"; "$@" || rc=$?; e="$(date +%s.%N)"
+        awk "BEGIN{printf \"%f seconds time elapsed\n\", ${e}-${s}}" > "${pf}"
+    fi
+    thr1="$(sum_throttle)"; e1="$(rapl_energy_uj)"; t1="$(pkg_temp_c)"
+    elapsed="$(awk '/seconds time elapsed/{print $1; exit}' "${pf}" | tr -d ,)"
+    cyc="$(awk '/ cycles/{print $1; exit}' "${pf}" | tr -d ,)"
+    tc="$(awk '/task-clock/{print $1; exit}' "${pf}" | tr -d ,)"
+    rm -f "${pf}"
+
+    echo "---- guard report ----"
+    echo "  command            : $*"
+    [[ -n "${elapsed}" ]] && echo "  wall time          : ${elapsed} s"
+    ceil="$(freq_ceiling_khz)"; base="$(freq_base_khz)"; [[ -n "${base}" ]] || base="${ceil}"
+    if [[ -n "${cyc}" && -n "${tc}" ]]; then
+        ghz="$(awk "BEGIN{printf \"%.2f\", ${cyc}/${tc}/1e6}")"
+        echo "  effective clock    : ${ghz} GHz (busy avg = cycles / CPU-time)"
+    fi
+    [[ -n "${ceil}" ]] && echo "  policy ceiling     : $(awk "BEGIN{printf \"%.2f GHz\", ${ceil}/1e6}")$([[ -n "${base}" ]] && awk "BEGIN{printf \"  (sustainable base %.2f GHz)\", ${base}/1e6}")"
+    if [[ -n "${e0}" && -n "${e1}" && -n "${elapsed}" ]]; then
+        watts="$(awk "BEGIN{d=${e1}-${e0}; if(d<0){print \"wrap\"} else {printf \"%.2f\", d/1e6/${elapsed}}}")"
+        [[ "${watts}" == "wrap" ]] && echo "  avg package power  : n/a (energy counter wrapped)" \
+                                   || echo "  avg package power  : ${watts} W"
+    fi
+    [[ -n "${t0}" && -n "${t1}" ]] && echo "  package temp       : ${t0} -> ${t1} C"
+    dthr=$(( thr1 - thr0 ))
+    echo "  thermal throttles  : +${dthr} during run"
+
+    printf '  VERDICT            : '
+    if (( dthr > 0 )); then
+        echo "THROTTLED (thermal) — ${dthr} event(s); measurement suspect"
+    elif [[ -n "${ghz}" && -n "${base}" ]] && awk "BEGIN{exit !(${ghz}*1e6 < 0.90*${base})}"; then
+        echo "SUSPECT — busy clock ${ghz} GHz is below the sustainable base with no thermal event (likely power/PL1-limited)"
+    else
+        echo "CLEAN"
+    fi
+    return ${rc}
+}
+
+# calibrate [seconds] [--pin] : run an all-core load, measure the SETTLED clock
+# (what it drops to after the PL2->PL1 boost transient = the sustainable all-core
+# frequency), and report it. With --pin, cap scaling_max_freq there so 1-thread
+# and 8-thread runs share one core-count-independent clock. Wired into `restore`.
+calibrate() {
+    require_root calibrate
+    local secs=60 pin=0 save=0 a
+    for a in "$@"; do
+        case "${a}" in
+            --pin) pin=1 ;;
+            --save) save=1 ;;
+            ''|*[!0-9]*) : ;;   # non-numeric, ignore
+            *) secs="${a}" ;;
+        esac
+    done
+    local ncpu; ncpu="$(nproc)"
+    # snapshot the freq state so a measure-only run leaves the box as it found it
+    local sv_gov sv_max sv_turbo hwmax f
+    sv_gov="$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || true)"
+    sv_max="$(freq_ceiling_khz)"
+    [[ -r /sys/devices/system/cpu/intel_pstate/no_turbo ]] && sv_turbo="$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)"
+    hwmax="$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq 2>/dev/null || true)"
+    # maximize during the measure so we observe the true unconstrained settle point
+    [[ -n "${sv_turbo:-}" ]] && echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
+    for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > "${f}" 2>/dev/null || true; done
+    [[ -n "${hwmax}" ]] && for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do echo "${hwmax}" > "${f}" 2>/dev/null || true; done
+
+    echo "Calibrating: ${ncpu}-core load for ${secs}s; measuring the settled tail clock..."
+    local pids=() i
+    for (( i=0; i<ncpu; i++ )); do timeout "${secs}" bash -c 'while :; do :; done' & pids+=($!); done
+    local warm; warm=$(( secs > 20 ? secs - 12 : secs / 2 )); sleep "${warm}"
+    local thr0 e0 pf win=10 cyc
+    thr0="$(sum_throttle)"; e0="$(rapl_energy_uj)"; pf="$(mktemp)"
+    LC_ALL=C perf stat -a -e cycles -o "${pf}" -- sleep "${win}" 2>/dev/null || true
+    local thr1 e1 t1; thr1="$(sum_throttle)"; e1="$(rapl_energy_uj)"; t1="$(pkg_temp_c)"
+    cyc="$(awk '/cycles/{print $1; exit}' "${pf}" | tr -d ,)"; rm -f "${pf}"
+    wait "${pids[@]}" 2>/dev/null || true
+
+    local ghz="" watts="" dthr pin_khz=""
+    dthr=$(( thr1 - thr0 ))
+    if [[ -n "${cyc}" ]]; then
+        ghz="$(awk "BEGIN{printf \"%.2f\", ${cyc}/${win}/${ncpu}/1e9}")"
+        pin_khz="$(awk "BEGIN{printf \"%d\", int(${ghz}*1e6*0.97/100000)*100000}")"
+    fi
+    [[ -n "${e0}" && -n "${e1}" ]] && watts="$(awk "BEGIN{d=${e1}-${e0}; if(d>=0) printf \"%.1f\", d/1e6/${win}}")"
+    local pl1w; pl1w="$(awk '{printf "%.1f", $1/1e6}' /sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw 2>/dev/null || true)"
+
+    echo "---- calibration ----"
+    [[ -n "${ghz}"   ]] && echo "  settled all-core clock : ${ghz} GHz (${ncpu} cores, tail ${win}s)" \
+                        || echo "  settled all-core clock : n/a (perf could not count cycles)"
+    [[ -n "${watts}" ]] && echo "  package power          : ${watts} W$([[ -n "${pl1w}" ]] && echo " (PL1 ${pl1w} W)")"
+    [[ -n "${t1}"    ]] && echo "  package temp           : ${t1} C"
+    echo "  thermal throttles      : +${dthr} during tail"
+    if [[ -n "${watts}" && -n "${pl1w}" ]] && awk "BEGIN{exit !(${watts} > ${pl1w}*1.05)}"; then
+        echo "  NOTE: tail power ${watts} W exceeds PL1 ${pl1w} W — still in PL2 boost, so the settled"
+        echo "        clock is OPTIMISTIC. Re-run longer from idle (e.g. 'calibrate 90') for the true value."
+    fi
+    [[ -n "${pin_khz}" ]] && echo "  suggested pin          : $(awk "BEGIN{printf \"%.2f GHz\", ${pin_khz}/1e6}") (settled x0.97 — the core-count-independent clock)"
+
+    if (( save )) && [[ -n "${pin_khz}" ]]; then
+        {
+            echo "# Written by 'profiling-setup calibrate --save'; read by 'profiling-setup pin'."
+            echo "PIN_KHZ=${pin_khz}"
+            echo "SETTLED_GHZ=${ghz}"
+            [[ -n "${watts}" ]] && echo "PACKAGE_WATTS=${watts}"
+            [[ -n "${pl1w}"  ]] && echo "PL1_WATTS=${pl1w}"
+            [[ -n "${t1}"    ]] && echo "PACKAGE_TEMP_C=${t1}"
+            echo "THERMAL_THROTTLES=${dthr}"
+            echo "CALIBRATED=$(date -Iseconds)"
+        } > "${CONF_FILE}"
+        echo "  SAVED to ${CONF_FILE}; 'sudo $0 pin' re-applies it."
+    fi
+
+    if (( pin )) && [[ -n "${pin_khz}" ]]; then
+        # restore the pre-calibration governor/ceiling first, so pin_apply records those as the originals
+        [[ -n "${sv_turbo:-}" ]] && save_original intel_no_turbo "${sv_turbo}"   # calibrate turned turbo on; restore reverts it
+        [[ -n "${sv_max}" ]] && for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do echo "${sv_max}" > "${f}" 2>/dev/null || true; done
+        [[ -n "${sv_gov}" ]] && for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo "${sv_gov}" > "${f}" 2>/dev/null || true; done
+        pin_apply "${pin_khz}"
+    else
+        # measure-only (or no reading): put the frequency state back exactly
+        [[ -n "${sv_turbo:-}" ]] && echo "${sv_turbo}" > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
+        [[ -n "${sv_max}" ]] && for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do echo "${sv_max}" > "${f}" 2>/dev/null || true; done
+        [[ -n "${sv_gov}" ]] && for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo "${sv_gov}" > "${f}" 2>/dev/null || true; done
+        (( pin )) || echo "  (measure-only; frequency state restored. Re-run with --pin to lock it in.)"
+    fi
+    return 0
+}
+
+status() {
+    echo "perf_event_paranoid : $(sysctl -n kernel.perf_event_paranoid)"
+    echo "kptr_restrict       : $(sysctl -n kernel.kptr_restrict)"
+    echo "governor            : $(cat ${GOV_GLOB} 2>/dev/null | sort -u | paste -sd, -)"
+    [[ -e /sys/devices/system/cpu/intel_pstate/no_turbo ]] && echo "intel no_turbo      : $(cat /sys/devices/system/cpu/intel_pstate/no_turbo)"
+    [[ -e /sys/devices/system/cpu/cpufreq/boost ]]         && echo "cpufreq boost       : $(cat /sys/devices/system/cpu/cpufreq/boost)"
+    command -v systemctl >/dev/null 2>&1 && echo "active timers       : $(for t in ${QUIET_TIMERS}; do systemctl is-active --quiet "${t}" && printf '%s ' "${t}"; done)"
+    echo "scaling_max_freq    : $(freq_ceiling_khz) (hardware max $(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq 2>/dev/null))"
+    if [[ -r "${CONF_FILE}" ]]; then echo "saved calibration   : PIN_KHZ=$(conf_value PIN_KHZ), calibrated $(conf_value CALIBRATED)"; else echo "saved calibration   : none (${CONF_FILE})"; fi
+    if [[ -f "${STATE_FILE}" ]]; then echo "(profiling mode active — saved state: ${STATE_FILE})"; else echo "(not in profiling mode)"; fi
+}
+
+case "${1:-status}" in
+    apply)
+        require_root apply
+        echo "Entering profiling mode (originals saved to ${STATE_FILE}):"
+        sysctl_apply kernel.perf_event_paranoid "${PARANOID_PROFILE}"
+        sysctl_apply kernel.kptr_restrict 0
+        sysctl_apply kernel.nmi_watchdog 0     # frees a PMU counter, less noise
+        sysctl_apply kernel.numa_balancing 0   # skipped automatically on single-node boxes
+        [[ -n "${ASLR_OFF:-}" ]] && sysctl_apply kernel.randomize_va_space 0   # opt-in: stable perfasm addresses (disables ASLR)
+        governor_apply
+        turbo_apply
+        thp_apply
+        timers_apply
+        echo "Done. Run 'sudo $0 restore' when finished."
+        ;;
+    restore)
+        require_root restore
+        [[ -f "${STATE_FILE}" ]] || { echo "No saved state (${STATE_FILE}); nothing to restore."; exit 0; }
+        echo "Restoring original values:"
+        sysctl_restore kernel.perf_event_paranoid
+        sysctl_restore kernel.kptr_restrict
+        sysctl_restore kernel.nmi_watchdog
+        sysctl_restore kernel.numa_balancing
+        sysctl_restore kernel.randomize_va_space
+        governor_restore
+        turbo_restore
+        thp_restore
+        timers_restore
+        maxfreq_restore
+        rm -f "${STATE_FILE}"
+        echo "Restored. Removed ${STATE_FILE}."
+        ;;
+    status)    status ;;
+    check)     check ;;
+    guard)     shift; guard "$@" ;;
+    calibrate) shift; calibrate "$@" ;;
+    pin)       pin ;;
+    *) echo "Usage: $0 {apply|restore|status|check|guard -- <cmd...>|calibrate [secs] [--pin] [--save]|pin}" >&2; exit 2 ;;
+esac
