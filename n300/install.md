@@ -154,7 +154,10 @@ Then **Ctrl+Alt+F6** back to Anaconda.
 Back in Anaconda (Ctrl+Alt+F6), work through the spokes:
 
 - **Installation Destination** → select the NVMe, reclaim/delete the Windows
-  partitions. Default automatic Btrfs partitioning is fine for this box.
+  partitions and keep automatic partitioning. Fedora Server lays out LVM with
+  an XFS root volume capped well below the disk size (115 GiB of 477 GiB on
+  this box); the rest stays unallocated in the `fedora` volume group until you
+  grow root after the first boot (below).
 - **Network & Hostname** → toggle the wired NIC **On**, enable "Connect
   automatically," set a hostname. Doing this here means the box is on the network
   the instant it reboots — essential for a headless install.
@@ -168,6 +171,19 @@ Back in Anaconda (Ctrl+Alt+F6), work through the spokes:
 Fedora Server boots to `multi-user.target` with **sshd enabled out of the box**
 (and Cockpit on `:9090` if you want a web UI), so there's no desktop to strip.
 Drop in a dedicated SSH key from your Mac and lock down login.
+
+### Grow root to the whole disk
+
+Benchmark data and scratch outgrow the capped root volume. Give it all free
+space in the volume group; `-r` grows the XFS filesystem with it, online:
+
+```bash
+sudo lvextend -r -l +100%FREE fedora/root
+df -h /                # ≈ 474G
+```
+
+XFS cannot shrink, so this is one-way: carving out a separate volume later
+means reinstalling.
 
 ### Create a dedicated key (on the Mac)
 
