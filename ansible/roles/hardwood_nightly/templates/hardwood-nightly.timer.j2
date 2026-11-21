@@ -1,0 +1,9 @@
+[Unit]
+Description=Hardwood nightly regression run
+
+[Timer]
+OnCalendar={{ hardwood_nightly_time }}
+Persistent=false
+
+[Install]
+WantedBy=timers.target

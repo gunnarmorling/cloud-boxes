@@ -1,0 +1,13 @@
+[Unit]
+Description=Hardwood nightly regression run (hardwood-benchmarks nightly.sh)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User={{ user }}
+Environment=NIGHTLY_BENCH_REF={{ hardwood_nightly_bench_ref }}
+# A login shell, for SDKMan's JDK. The job brings its checkout of hardwood-benchmarks up to
+# date and runs a copy of nightly.sh from it; only the first run clones it here.
+ExecStart=/bin/bash -lc 'd="$HOME/nightly/hardwood-benchmarks"; [ -d "$d/.git" ] || git clone -q https://github.com/hardwood-hq/hardwood-benchmarks.git "$d"; git -C "$d" fetch -q origin && git -C "$d" checkout -q --detach "$NIGHTLY_BENCH_REF" && exec "$d/nightly.sh" {{ hardwood_nightly_args }}'
+TimeoutStartSec=6h

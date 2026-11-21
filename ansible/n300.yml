@@ -10,7 +10,8 @@
 # against the quiet, low-noise measurement environment this box exists for
 # (n300/benchmark.md). The n300_bench role installs the bench packages; bench_host
 # installs profiling-setup, which applies and reverts per-session benchmark state
-# (clock pin, PMU access, quiet timers) rather than configuring it permanently.
+# (clock pin, PMU access, quiet timers) rather than configuring it permanently;
+# hardwood_nightly installs the timer of Hardwood's nightly regression run.
 - hosts: n300
   remote_user: build
 
@@ -57,3 +58,4 @@
     - base
     - n300_bench
     - bench_host
+    - hardwood_nightly
