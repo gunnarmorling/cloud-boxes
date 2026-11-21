@@ -55,7 +55,10 @@ the gitignored `ansible/n300.local.yml`.
    async-profiler, …) plus the bench tools (role `n300_bench`): `perf` (JMH
    perf* profilers), `kernel-tools` (cpupower + turbostat), `stress-ng`, and
    `capstone-devel` (for hsdis, §2), and `/usr/local/sbin/profiling-setup`
-   (role `bench_host`, [benchmark.md](benchmark.md)). Install JDKs with SDKMan — there's no Fedora JDK on
+   (role `bench_host`, [benchmark.md](benchmark.md)), and the timer of Hardwood's
+   nightly regression run (role `hardwood_nightly`,
+   [benchmark.md](benchmark.md#nightly-regression-run)), whose GitHub token goes
+   into `~/nightly/token` by hand. Install JDKs with SDKMan — there's no Fedora JDK on
    the box.
 
 4. **Switch the `ssh n300` alias to `build`** — set `User build` in the

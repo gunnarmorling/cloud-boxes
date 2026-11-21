@@ -1,0 +1,33 @@
+# The nightly regression job of hardwood-benchmarks: a timer starts nightly.sh as the build
+# user, which measures Hardwood's main on the pinned clock, records it into
+# hardwood-benchmark-results and opens an issue per confirmed regression (n300/benchmark.md).
+- name: Have the nightly job's home
+  file:
+    path: "/home/{{ user }}/nightly"
+    state: directory
+    mode: "0700"
+    owner: "{{ user }}"
+
+- name: Have the nightly job's service
+  become: true
+  template:
+    src: hardwood-nightly.service.j2
+    dest: /etc/systemd/system/hardwood-nightly.service
+    mode: "0644"
+  register: nightly_service
+
+- name: Have the nightly job's timer
+  become: true
+  template:
+    src: hardwood-nightly.timer.j2
+    dest: /etc/systemd/system/hardwood-nightly.timer
+    mode: "0644"
+  register: nightly_timer
+
+- name: Enable or disable the nightly timer
+  become: true
+  systemd:
+    name: hardwood-nightly.timer
+    enabled: "{{ hardwood_nightly_enabled }}"
+    state: "{{ 'started' if hardwood_nightly_enabled else 'stopped' }}"
+    daemon_reload: "{{ nightly_service.changed or nightly_timer.changed }}"

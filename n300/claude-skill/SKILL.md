@@ -79,6 +79,12 @@ ssh … 'pgrep -x java >/dev/null && { echo BUSY; ps -eo pid,etime,args | grep [
 Also look at `who` and recent mtimes in `~/scratch` before a reboot. An idle check
 from earlier in the conversation is stale.
 
+**The nightly regression run** (`hardwood-nightly.timer`, 03:00 Berlin time, up to three hours;
+[`../benchmark.md`](../benchmark.md#nightly-regression-run)) holds `~/nightly/lock`
+while it runs. Don't start a JVM or touch the clock while it does: any JVM outside
+its own service voids that night's results. Check with
+`flock -n ~/nightly/lock true || echo NIGHTLY`, and never delete `~/nightly`.
+
 - **Say in chat what you are about to set and why** before changing clock/governor
   state; the user must never reverse-engineer a clock change from a number.
 - **Leave the box as you found it:** record `scaling_max_freq`, governor and

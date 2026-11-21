@@ -51,3 +51,27 @@ numbers. A turbo-off `apply` that was never restored leaves the box at 0.80 GHz
 and every JMH number about 2× slow, with nothing in the result announcing it:
 compare `scaling_max_freq` against `cpuinfo_max_freq` (3.8 GHz) before trusting an
 absolute figure.
+
+## Nightly regression run
+
+The `hardwood_nightly` role ([provision.md](provision.md)) installs
+`hardwood-nightly.timer`, which starts `hardwood-nightly.service` as `build` at
+03:00, the box's local time (Europe/Berlin). The service runs `nightly.sh` from a checkout of hardwood-benchmarks under
+`~/nightly`: it measures Hardwood's `origin/main` with the nightly regression
+profile on the pinned clock, records it into `hardwood-benchmark-results`, lets
+Apache Otava find change points, confirms new regressions, pushes the results,
+the night's report and the history page, and opens a Hardwood issue per confirmed
+regression. The hardwood-benchmarks README describes the job.
+
+| Item | Where |
+| --- | --- |
+| Clones, each night's output and log, backfill queue, lock | `~/nightly` (`runs/<date>-<time>/nightly.log`) |
+| GitHub token: contents write on hardwood-benchmark-results, issues write on hardwood | `~/nightly/token`, mode 600; not managed by Ansible |
+| Options (`--no-alert` while calibrating, `--commit <sha>`) | `hardwood_nightly_args` |
+| The hardwood-benchmarks ref it runs | `hardwood_nightly_bench_ref` |
+
+A night starts only when no JVM runs and nobody else pinned the clock, and a JVM
+outside the service during the run voids it; a skipped or voided night writes a
+report saying why. `systemctl list-timers hardwood-nightly.timer` shows the next
+run, `journalctl -u hardwood-nightly` the last ones.
+
