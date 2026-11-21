@@ -1,6 +1,7 @@
 # The nightly regression job of hardwood-benchmarks (nightly.sh), run by a systemd timer as
-# the `build` user. It needs a GitHub token in ~build/nightly/token (contents: write on
-# hardwood-benchmark-results, issues: write on hardwood), which this role does not manage.
+# the `build` user. It needs two fine-grained GitHub tokens, which this role does not manage:
+# ~build/nightly/token-results (Contents: read and write on hardwood-benchmark-results only)
+# and ~build/nightly/token-issues (Issues: read and write on hardwood only).
 # Local time of the box (Europe/Berlin).
 hardwood_nightly_time: "*-*-* 03:00:00"
 # The hardwood-benchmarks ref the job runs (its nightly.sh and presets).

@@ -66,7 +66,8 @@ regression. The hardwood-benchmarks README describes the job.
 | Item | Where |
 | --- | --- |
 | Clones, each night's output and log, backfill queue, lock | `~/nightly` (`runs/<date>-<time>/nightly.log`) |
-| GitHub token: contents write on hardwood-benchmark-results, issues write on hardwood | `~/nightly/token`, mode 600; not managed by Ansible |
+| Fine-grained GitHub token, Contents read and write on hardwood-benchmark-results only, to push | `~/nightly/token-results`, mode 600; not managed by Ansible |
+| Fine-grained GitHub token, Issues read and write on hardwood only, to open alert issues | `~/nightly/token-issues`, mode 600; not managed by Ansible |
 | Options (`--no-alert` while calibrating, `--commit <sha>`) | `hardwood_nightly_args` |
 | The hardwood-benchmarks ref it runs | `hardwood_nightly_bench_ref` |
 
