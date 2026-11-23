@@ -64,6 +64,27 @@ from the user's Mac; this container has no Ansible. Don't hot-patch
 - **Poll on a log marker** (`grep -q DONE`), never `pgrep -f "<pattern>"` over SSH:
   the pattern is in the polling shell's own argv, so it always matches.
 
+## Decide every run — no long runs without a reason
+
+Before launching anything, write down in chat the question the run answers, its
+estimated duration (versions × rounds × contenders × (warmup + measurement) + build),
+and why a shorter run would not answer it. Default budget: **≤3 min per run, ≤5 min
+per experiment round**; anything longer is agreed with the user first.
+
+- **Narrowest contender:** `run-<bench>.sh --include <method> --warmup N --meas 3
+  --time 1 --no-pin`, not `run-regression.sh`. A regression profile runs every
+  contender of a script (e.g. `binary` with `--profile nightly` also runs
+  `hardwoodRowStrings`: ~160 s per run instead of ~25 s), and `--regression` forbids
+  `--include`. `run-regression.sh` with rounds is for PR gates of scheduler/pipeline
+  changes, not for investigation.
+- **Fewest versions and rounds:** drop a version an earlier run already settled; start
+  with 2 rounds and add rounds only for a close call.
+- **One question per run:** classify with one `perfnorm` A/B first; profile (async,
+  perfasm) only what that leaves open.
+- **Check the first lines right after launch** and the per-run duration once the first
+  run ends; if the projected total exceeds the estimate, kill and re-scope rather than
+  wait it out.
+
 ## The box is shared — gate, don't just look
 
 Other Claude sessions use this box too, often starting a run minutes after the
