@@ -19,6 +19,9 @@
     - vars.yml            # user: build (needed by the base role)
     - n300.local.yml      # n300_host (the box's LAN IP, used by hosts.n300)
 
+  vars:
+    hardwood_nightly_machine: n300   # its directory in hardwood-benchmark-results
+
   pre_tasks:
     # The N300 is a LAN-only box on port 22 (no cloud-init custom port/hardening
     # like Hetzner), so we assert only what n300/install.md §5 guarantees: password auth

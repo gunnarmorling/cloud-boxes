@@ -1,6 +1,26 @@
 # The nightly regression job of hardwood-benchmarks: a timer starts nightly.sh as the build
 # user, which measures Hardwood's main on the pinned clock, records it into
 # hardwood-benchmark-results and opens an issue per confirmed regression (n300/benchmark.md).
+- name: Check the machine's name
+  assert:
+    that:
+      - hardwood_nightly_machine is match('^[a-z0-9][a-z0-9-]*$')
+    fail_msg: "Set hardwood_nightly_machine to the machine's name (lower-case letters, digits and dashes)."
+
+- name: Have the directory of the machine's name
+  become: true
+  file:
+    path: /etc/hardwood-benchmarks
+    state: directory
+    mode: "0755"
+
+- name: Have the machine's name, where regression runs read it
+  become: true
+  copy:
+    dest: /etc/hardwood-benchmarks/machine
+    content: "{{ hardwood_nightly_machine }}\n"
+    mode: "0644"
+
 - name: Have the nightly job's home
   file:
     path: "/home/{{ user }}/nightly"

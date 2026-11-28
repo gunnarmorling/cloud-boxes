@@ -10,3 +10,8 @@ hardwood_nightly_bench_ref: origin/main
 # commit night after night.
 hardwood_nightly_args: ""
 hardwood_nightly_enabled: true
+# The machine's name (lower-case letters, digits and dashes), required: its directory in
+# hardwood-benchmark-results and the name of its failing-night issue. Written to
+# /etc/hardwood-benchmarks/machine, where every regression run on the box reads it, the
+# quick-against-nightly comparison included.
+hardwood_nightly_machine: ""

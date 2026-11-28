@@ -70,6 +70,7 @@ regression. The hardwood-benchmarks README describes the job.
 | Fine-grained GitHub token, Issues read and write on hardwood only, to open alert issues | `~/nightly/token-issues`, mode 600; not managed by Ansible |
 | Options (`--no-alert` while calibrating, `--commit <sha>`) | `hardwood_nightly_args` |
 | The hardwood-benchmarks ref it runs | `hardwood_nightly_bench_ref` |
+| The machine's name, `n300`: its directory in hardwood-benchmark-results and its failing-night issue | `hardwood_nightly_machine`, written to `/etc/hardwood-benchmarks/machine` |
 
 A night starts only when no JVM runs and nobody else pinned the clock, and a JVM
 outside the service during the run voids it; a skipped or voided night writes a
